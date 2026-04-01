@@ -1,0 +1,734 @@
+Batch run started for 51 PDFs
+SKIP 2013-E.C-Assigned-regular-budget-and-expense.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2d549cbe4764.json
+SKIP 2013-E.C-Audit-finding-information.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d25ff9ccdd3e.json
+SKIP 2013-E.C-Procurement-information.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\38829903f1ba.json
+SKIP 2018_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2a6a53bfeca2.json
+SKIP 20191010_Pharmaceutical-Manufacturing-Opportunites-in-Ethiopia_VF.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2f0a6f26f613.json
+ERROR 2019_Audited_Financial_Statement_Report.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR 2020_Audited_Financial_Statement_Report.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR 2021_Audited_Financial_Statement_Report.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP 2022_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\78debdb5f7d3.json
+ERROR Annual_Report_JUNE-2017.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Annual_Report_JUNE-2018.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\191ca35b886f.json
+ERROR Annual_Report_JUNE-2019.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Annual_Report_JUNE-2020.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Annual_Report_JUNE-2021.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Annual_Report_JUNE-2022.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Annual_Report_JUNE-2023.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d1a8265511d8.json
+ERROR Audit Report - 2023.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2006-7 .pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2008-9 .pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2009-10.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2010-11.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2011-12.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2012-13.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2013-14.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2014-15.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2015-16.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2015-16_1.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2016-17.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2017-18.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2018-19.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE ANNUAL REPORT 2023-24.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Company_Profile_2024_25.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\e4f8530e7c7e.json
+ERROR Consumer Price Index August 2025.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Consumer Price Index July 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\e2a5bc87d9f6.json
+SKIP Consumer Price Index June 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\7b7c52e89c29.json
+SKIP Consumer Price Index March 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\6364a6bf2474.json
+SKIP Consumer Price Index May 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\5257595bc4f3.json
+ERROR Consumer Price Index September 2025.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Consumer Price Index, April 2025.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR ETHIO_RE_AT_A_GLANCE_2023_24.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP EthSwitch-10th-Annual-Report-202324.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\28e6c80f43d8.json
+ERROR EthSwitch-Annual-Report-2019.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Ethswitch-Annual-report-2020.2021_.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR ETHSWITCH-Annual-Report-202122.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR ETS-Annual-Report-2023_2024.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP ETS_Annual_Report_2024_2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\afbc8da8449c.json
+ERROR fta_performance_survey_final_report_2022.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Minimalist Vintage Line A4 Stationery Paper Document_2.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\a094a2d8de42.json
+ERROR Security_Vulnerability_Disclosure_Standard_Procedure_1.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Security_Vulnerability_Disclosure_Standard_Procedure_2.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR tax_expenditure_ethiopia_2021_22.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+Batch run started for 51 PDFs
+SKIP 2013-E.C-Assigned-regular-budget-and-expense.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2d549cbe4764.json
+SKIP 2013-E.C-Audit-finding-information.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d25ff9ccdd3e.json
+SKIP 2013-E.C-Procurement-information.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\38829903f1ba.json
+SKIP 2018_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2a6a53bfeca2.json
+SKIP 20191010_Pharmaceutical-Manufacturing-Opportunites-in-Ethiopia_VF.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2f0a6f26f613.json
+ERROR 2019_Audited_Financial_Statement_Report.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR 2020_Audited_Financial_Statement_Report.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR 2021_Audited_Financial_Statement_Report.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP 2022_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\78debdb5f7d3.json
+ERROR Annual_Report_JUNE-2017.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Annual_Report_JUNE-2018.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\191ca35b886f.json
+ERROR Annual_Report_JUNE-2019.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Annual_Report_JUNE-2020.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Annual_Report_JUNE-2021.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Annual_Report_JUNE-2022.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Annual_Report_JUNE-2023.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d1a8265511d8.json
+ERROR Audit Report - 2023.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2006-7 .pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2008-9 .pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2009-10.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2010-11.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2011-12.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2012-13.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2013-14.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2014-15.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2015-16.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2015-16_1.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2016-17.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2017-18.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE Annual Report 2018-19.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR CBE ANNUAL REPORT 2023-24.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Company_Profile_2024_25.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\e4f8530e7c7e.json
+ERROR Consumer Price Index August 2025.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Consumer Price Index July 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\e2a5bc87d9f6.json
+SKIP Consumer Price Index June 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\7b7c52e89c29.json
+SKIP Consumer Price Index March 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\6364a6bf2474.json
+SKIP Consumer Price Index May 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\5257595bc4f3.json
+ERROR Consumer Price Index September 2025.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Consumer Price Index, April 2025.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR ETHIO_RE_AT_A_GLANCE_2023_24.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP EthSwitch-10th-Annual-Report-202324.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\28e6c80f43d8.json
+ERROR EthSwitch-Annual-Report-2019.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Ethswitch-Annual-report-2020.2021_.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR ETHSWITCH-Annual-Report-202122.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR ETS-Annual-Report-2023_2024.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP ETS_Annual_Report_2024_2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\afbc8da8449c.json
+ERROR fta_performance_survey_final_report_2022.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+SKIP Minimalist Vintage Line A4 Stationery Paper Document_2.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\a094a2d8de42.json
+ERROR Security_Vulnerability_Disclosure_Standard_Procedure_1.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR Security_Vulnerability_Disclosure_Standard_Procedure_2.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+
+ERROR tax_expenditure_ethiopia_2021_22.pdf
+Traceback (most recent call last):
+  File "D:\TRP-1\Week-3\document-refinery\scripts\run_extract.py", line 14, in <module>
+    from src.agents.extractor import run_extraction
+  File "D:\TRP-1\Week-3\document-refinery\src\agents\extractor.py", line 12, in <module>
+    from src.strategies.strategy_a import extract_with_pdfplumber
+  File "D:\TRP-1\Week-3\document-refinery\src\strategies\strategy_a.py", line 9, in <module>
+    import pdfplumber
+ModuleNotFoundError: No module named 'pdfplumber'
+

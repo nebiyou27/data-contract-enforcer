@@ -1,0 +1,86 @@
+version: 2
+models:
+- name: documents
+  description: Model for documents -- derived from contract week3-document-refinery-extractions
+  columns:
+  - name: doc_id
+    tests:
+    - not_null
+    - unique
+  - name: source_path
+    tests:
+    - not_null
+  - name: source_hash
+    tests:
+    - not_null
+  - name: extraction_model
+    tests:
+    - not_null
+  - name: processing_time_ms
+    tests:
+    - not_null
+    description: Numeric. range=[116.0, 1036312.0], mean=123744.263158, stddev=245340.754294
+  - name: token_count_input
+    tests:
+    - not_null
+    description: Numeric. range=[90.0, 127271.0], mean=18682.894737, stddev=32144.641456
+  - name: token_count_output
+    tests:
+    - not_null
+    description: Numeric. range=[90.0, 127271.0], mean=18682.894737, stddev=32144.641456
+  - name: extracted_at
+    tests:
+    - not_null
+  - name: fact_count
+    tests:
+    - not_null
+    description: Numeric. range=[15.0, 11629.0], mean=1796.736842, stddev=3393.168052
+  - name: entity_count
+    tests:
+    - not_null
+    description: Numeric. range=[0.0, 227.0], mean=48.789474, stddev=68.543238
+- name: extracted_facts
+  description: Model for extracted_facts -- derived from contract week3-document-refinery-extractions
+  columns:
+  - name: doc_id
+    tests:
+    - not_null
+    - unique
+  - name: fact_id
+    tests:
+    - not_null
+    - unique
+  - name: text
+    tests:
+    - not_null
+  - name: confidence
+    tests:
+    - not_null
+    description: Numeric. range=[0.676, 1.0], mean=0.97843, stddev=0.037003
+  - name: page_ref
+    tests:
+    - not_null
+    description: Numeric. range=[1.0, 104.0], mean=37.791581, stddev=26.303856
+  - name: source_excerpt
+    tests:
+    - not_null
+- name: entities
+  description: Model for entities -- derived from contract week3-document-refinery-extractions
+  columns:
+  - name: doc_id
+    tests:
+    - not_null
+    - unique
+  - name: entity_id
+    tests:
+    - not_null
+    - unique
+  - name: name
+    tests:
+    - not_null
+  - name: type
+    tests:
+    - not_null
+  - name: canonical_value
+    tests:
+    - not_null
