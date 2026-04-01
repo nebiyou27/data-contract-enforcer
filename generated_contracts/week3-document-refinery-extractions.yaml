@@ -49,14 +49,17 @@ schema:
       type: integer
       required: true
       description: 'Profiled: null_fraction=0.0, cardinality=38, range=[116.0, 1188768.0], mean=226028.789474'
+      minimum: 0
     - name: token_count_input
       type: integer
       required: true
       description: 'Profiled: null_fraction=0.0, cardinality=38, range=[90.0, 127271.0], mean=25873.605263'
+      minimum: 1
     - name: token_count_output
       type: integer
       required: true
       description: 'Profiled: null_fraction=0.0, cardinality=38, range=[90.0, 127271.0], mean=25873.605263'
+      minimum: 0
     - name: extracted_at
       type: string
       required: true
@@ -66,10 +69,12 @@ schema:
       type: integer
       required: true
       description: 'Profiled: null_fraction=0.0, cardinality=37, range=[15.0, 11629.0], mean=1178.526316'
+      minimum: 1
     - name: entity_count
       type: integer
       required: true
       description: 'Profiled: null_fraction=0.0, cardinality=29, range=[0.0, 227.0], mean=66.131579'
+      minimum: 0
   - name: extracted_facts
     description: Profiled from outputs/week3/extractions.jsonl (38 source documents)
     fields:
@@ -97,6 +102,7 @@ schema:
       type: integer
       required: true
       description: 'Profiled: null_fraction=0.0, cardinality=155, range=[1.0, 155.0], mean=39.659901'
+      minimum: 1
     - name: source_excerpt
       type: string
       required: true
@@ -290,6 +296,72 @@ quality:
     dimension: completeness
     severity: error
     query: SELECT COUNT(*) FROM entities WHERE canonical_value IS NULL
+    mustBe: 0
+  - name: documents.doc_id.unique
+    description: doc_id must be unique -- duplicate doc_ids indicate a merge or re-ingestion error
+    dimension: uniqueness
+    severity: error
+    query: SELECT COUNT(*) - COUNT(DISTINCT doc_id) FROM documents
+    mustBe: 0
+  - name: documents.source_path.non_empty
+    description: source_path must not be an empty string
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM documents WHERE TRIM(source_path) = ''
+    mustBe: 0
+  - name: documents.fact_count.extraction_success
+    description: fact_count < 1 indicates extraction failure -- no facts produced for this document
+    dimension: validity
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE fact_count < 1
+    mustBe: 0
+  - name: documents.processing_time_ms.timeout_risk
+    description: processing_time_ms > 600000 (10 min) may indicate API timeout or extraction failure
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM documents WHERE processing_time_ms > 600000
+    mustBe: 0
+  - name: extracted_facts.fact_id.unique
+    description: fact_id must be unique -- duplicate fact_ids indicate re-ingestion or ID collision
+    dimension: uniqueness
+    severity: error
+    query: SELECT COUNT(*) - COUNT(DISTINCT fact_id) FROM extracted_facts
+    mustBe: 0
+  - name: extracted_facts.text.non_empty
+    description: text must not be an empty string -- empty text indicates a failed extraction
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM extracted_facts WHERE TRIM(text) = ''
+    mustBe: 0
+  - name: extracted_facts.source_excerpt.non_empty
+    description: source_excerpt must not be an empty string
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM extracted_facts WHERE TRIM(source_excerpt) = ''
+    mustBe: 0
+  - name: extracted_facts.page_ref.positive
+    description: page_ref must be >= 1 (PDF pages are 1-indexed; 0 is not a valid page)
+    dimension: validity
+    severity: error
+    query: SELECT COUNT(*) FROM extracted_facts WHERE page_ref < 1
+    mustBe: 0
+  - name: extracted_facts.confidence.floor_check
+    description: confidence < 0.5 signals low-confidence extraction; review model output quality
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM extracted_facts WHERE confidence < 0.5
+    mustBe: 0
+  - name: entities.entity_id.unique
+    description: entity_id must be unique -- duplicates indicate a merge or ID generation error
+    dimension: uniqueness
+    severity: error
+    query: SELECT COUNT(*) - COUNT(DISTINCT entity_id) FROM entities
+    mustBe: 0
+  - name: entities.name.non_empty
+    description: name must not be an empty string -- empty entity names are meaningless
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM entities WHERE TRIM(name) = ''
     mustBe: 0
 lineage:
   inputPorts:
