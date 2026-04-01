@@ -1,0 +1,101 @@
+Batch run started for 10 PDFs
+SKIP Company_Profile_2024_25.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\e4f8530e7c7e.json
+OK Consumer Price Index August 2025.pdf
+doc_id=6a05847d097a
+document_level_strategy_suggestion=strategy_b
+starting_strategy=strategy_b
+executed_strategy=strategy_b
+pages_processed=13
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=13
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=13
+executions_strategy_c=0
+planned_strategy_b=13 executed_strategy_b=13
+planned_strategy_c=0 executed_strategy_c=0
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\6a05847d097a.jsonl
+extracted=.refinery/extracted/6a05847d097a.json
+
+SKIP Consumer Price Index July 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\e2a5bc87d9f6.json
+SKIP Consumer Price Index June 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\7b7c52e89c29.json
+SKIP Consumer Price Index March 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\6364a6bf2474.json
+SKIP Consumer Price Index May 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\5257595bc4f3.json
+OK Consumer Price Index September 2025.pdf
+doc_id=7166d17ff17d
+document_level_strategy_suggestion=strategy_b
+starting_strategy=strategy_b
+executed_strategy=strategy_b
+pages_processed=13
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=13
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=13
+executions_strategy_c=0
+planned_strategy_b=13 executed_strategy_b=13
+planned_strategy_c=0 executed_strategy_c=0
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\7166d17ff17d.jsonl
+extracted=.refinery/extracted/7166d17ff17d.json
+
+OK Consumer Price Index, April 2025.pdf
+doc_id=3dbb00f983b9
+document_level_strategy_suggestion=strategy_b
+starting_strategy=strategy_b
+executed_strategy=strategy_b
+pages_processed=12
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=12
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=12
+executions_strategy_c=0
+planned_strategy_b=12 executed_strategy_b=12
+planned_strategy_c=0 executed_strategy_c=0
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\3dbb00f983b9.jsonl
+extracted=.refinery/extracted/3dbb00f983b9.json
+
+OK Security_Vulnerability_Disclosure_Standard_Procedure_1.pdf
+doc_id=548e141f345a
+document_level_strategy_suggestion=strategy_c
+starting_strategy=strategy_c
+executed_strategy=strategy_b
+pages_processed=15
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=15
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=15
+executions_strategy_c=15
+planned_strategy_b=15 executed_strategy_b=15
+planned_strategy_c=15 executed_strategy_c=15
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\548e141f345a.jsonl
+extracted=.refinery/extracted/548e141f345a.json
+
+OK Security_Vulnerability_Disclosure_Standard_Procedure_2.pdf
+doc_id=548e141f345a
+document_level_strategy_suggestion=strategy_c
+starting_strategy=strategy_c
+executed_strategy=strategy_c
+pages_processed=15
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=0
+final_pages_strategy_c=15
+executions_strategy_a=0
+executions_strategy_b=0
+executions_strategy_c=15
+planned_strategy_b=0 executed_strategy_b=0
+planned_strategy_c=15 executed_strategy_c=15
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\548e141f345a.jsonl
+extracted=.refinery/extracted/548e141f345a.json
+
