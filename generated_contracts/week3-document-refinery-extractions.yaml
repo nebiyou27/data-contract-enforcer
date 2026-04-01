@@ -4,8 +4,8 @@ id: week3-document-refinery-extractions
 info:
   title: 'Data Contract: week3-document-refinery-extractions'
   version: 1.0.0
-  description: Auto-generated Bitol data contract for week3-document-refinery-extractions. Profiled from 19 source records.
-    Generated at 2026-04-01T13:30:08.395842+00:00.
+  description: Auto-generated Bitol data contract for week3-document-refinery-extractions. Profiled from 38 source records.
+    Generated at 2026-04-01T16:35:52.085449+00:00.
   owner: data-engineering
   contact:
     name: TRP Week 7 Generator
@@ -19,28 +19,28 @@ schema:
   type: json
   tables:
   - name: documents
-    description: Profiled from outputs/week3/extractions.jsonl (19 source documents)
+    description: Profiled from outputs/week3/extractions.jsonl (38 source documents)
     fields:
     - name: doc_id
       type: string
       required: true
       format: uuid
-      description: 'Profiled: null_fraction=0.0, cardinality=19'
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
     - name: source_path
       type: string
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=19'
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
     - name: source_hash
       type: string
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=19'
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
     - name: extraction_model
       type: string
       required: true
       enum:
+      - strategy_b
       - strategy_a+strategy_b
       - strategy_c
-      - strategy_b
       - strategy_a+strategy_b+strategy_c
       - strategy_a
       - strategy_b+strategy_c
@@ -48,88 +48,88 @@ schema:
     - name: processing_time_ms
       type: integer
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=19, range=[116.0, 1036312.0], mean=123744.263158'
+      description: 'Profiled: null_fraction=0.0, cardinality=38, range=[116.0, 1188768.0], mean=226028.789474'
     - name: token_count_input
       type: integer
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=19, range=[90.0, 127271.0], mean=18682.894737'
+      description: 'Profiled: null_fraction=0.0, cardinality=38, range=[90.0, 127271.0], mean=25873.605263'
     - name: token_count_output
       type: integer
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=19, range=[90.0, 127271.0], mean=18682.894737'
+      description: 'Profiled: null_fraction=0.0, cardinality=38, range=[90.0, 127271.0], mean=25873.605263'
     - name: extracted_at
       type: string
       required: true
       format: date-time
-      description: 'Profiled: null_fraction=0.0, cardinality=19'
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
     - name: fact_count
       type: integer
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=19, range=[15.0, 11629.0], mean=1796.736842'
+      description: 'Profiled: null_fraction=0.0, cardinality=37, range=[15.0, 11629.0], mean=1178.526316'
     - name: entity_count
       type: integer
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=16, range=[0.0, 227.0], mean=48.789474'
+      description: 'Profiled: null_fraction=0.0, cardinality=29, range=[0.0, 227.0], mean=66.131579'
   - name: extracted_facts
-    description: Profiled from outputs/week3/extractions.jsonl (19 source documents)
+    description: Profiled from outputs/week3/extractions.jsonl (38 source documents)
     fields:
     - name: doc_id
       type: string
       required: true
       format: uuid
-      description: 'Profiled: null_fraction=0.0, cardinality=19'
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
     - name: fact_id
       type: string
       required: true
       format: uuid
-      description: 'Profiled: null_fraction=0.0, cardinality=34138'
+      description: 'Profiled: null_fraction=0.0, cardinality=44784'
     - name: text
       type: string
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=13535'
+      description: 'Profiled: null_fraction=0.0, cardinality=20555'
     - name: confidence
       type: number
       required: true
       minimum: 0.0
       maximum: 1.0
-      description: 'Profiled: null_fraction=0.0, cardinality=132, range=[0.676, 1.0], mean=0.97843'
+      description: 'Profiled: null_fraction=0.0, cardinality=183, range=[0.676, 1.0], mean=0.966817'
     - name: page_ref
       type: integer
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=104, range=[1.0, 104.0], mean=37.791581'
+      description: 'Profiled: null_fraction=0.0, cardinality=155, range=[1.0, 155.0], mean=39.659901'
     - name: source_excerpt
       type: string
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=13467'
+      description: 'Profiled: null_fraction=0.0, cardinality=20274'
   - name: entities
-    description: Profiled from outputs/week3/extractions.jsonl (19 source documents)
+    description: Profiled from outputs/week3/extractions.jsonl (38 source documents)
     fields:
     - name: doc_id
       type: string
       required: true
       format: uuid
-      description: 'Profiled: null_fraction=0.0, cardinality=18'
+      description: 'Profiled: null_fraction=0.0, cardinality=37'
     - name: entity_id
       type: string
       required: true
       format: uuid
-      description: 'Profiled: null_fraction=0.0, cardinality=927'
+      description: 'Profiled: null_fraction=0.0, cardinality=2513'
     - name: name
       type: string
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=702'
+      description: 'Profiled: null_fraction=0.0, cardinality=1273'
     - name: type
       type: string
       required: true
       enum:
-      - ORG
       - DATE
       - AMOUNT
+      - ORG
       description: 'Profiled: null_fraction=0.0, cardinality=3'
     - name: canonical_value
       type: string
       required: true
-      description: 'Profiled: null_fraction=0.0, cardinality=702'
+      description: 'Profiled: null_fraction=0.0, cardinality=1273'
 quality:
   type: custom
   specification: https://bitol.io/specs/quality/v1
@@ -162,7 +162,7 @@ quality:
     description: extraction_model must be one of the observed categorical values
     dimension: validity
     severity: warning
-    query: SELECT COUNT(*) FROM documents WHERE extraction_model NOT IN ('strategy_a+strategy_b', 'strategy_c', 'strategy_b',
+    query: SELECT COUNT(*) FROM documents WHERE extraction_model NOT IN ('strategy_b', 'strategy_a+strategy_b', 'strategy_c',
       'strategy_a+strategy_b+strategy_c', 'strategy_a', 'strategy_b+strategy_c') AND extraction_model IS NOT NULL
     mustBe: 0
   - name: documents.processing_time_ms.not_null
@@ -283,7 +283,7 @@ quality:
     description: type must be one of the observed categorical values
     dimension: validity
     severity: warning
-    query: SELECT COUNT(*) FROM entities WHERE type NOT IN ('ORG', 'DATE', 'AMOUNT') AND type IS NOT NULL
+    query: SELECT COUNT(*) FROM entities WHERE type NOT IN ('DATE', 'AMOUNT', 'ORG') AND type IS NOT NULL
     mustBe: 0
   - name: entities.canonical_value.not_null
     description: canonical_value must never be null
@@ -297,16 +297,20 @@ lineage:
     uri: outputs/week3/extractions.jsonl
     description: Week 3 PDF batch extraction pipeline
     format: jsonl
-    recordCount: 19
-    capturedAt: '2026-04-01T13:30:08.395842+00:00'
+    recordCount: 38
+    capturedAt: '2026-04-01T16:35:52.085449+00:00'
+  - type: upstream
+    uri: unknown
+    description: ''
+    capturedAt: '2026-04-01T16:30:13.679865+00:00'
   outputPorts:
   - type: data_contract
     uri: generated_contracts/week3-document-refinery-extractions.yaml
     description: Generated Bitol YAML data contract
-    generatedAt: '2026-04-01T13:30:08.395842+00:00'
+    generatedAt: '2026-04-01T16:35:52.085449+00:00'
   - type: dbt_schema
     uri: generated_contracts/week3-document-refinery-extractions_dbt_schema.yml
     description: dbt schema.yml for downstream model testing
-    generatedAt: '2026-04-01T13:30:08.395842+00:00'
-generatedAt: '2026-04-01T13:30:08.395842+00:00'
+    generatedAt: '2026-04-01T16:35:52.085449+00:00'
+generatedAt: '2026-04-01T16:35:52.085449+00:00'
 generatorVersion: 1.0.0

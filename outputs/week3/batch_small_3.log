@@ -1,0 +1,86 @@
+Batch run started for 13 PDFs
+SKIP Annual_Report_JUNE-2017.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\47fefbeba385.json
+SKIP Annual_Report_JUNE-2018.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\191ca35b886f.json
+SKIP Annual_Report_JUNE-2019.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\aca4cb3ee240.json
+SKIP Annual_Report_JUNE-2020.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\01c5a01f27d3.json
+SKIP Annual_Report_JUNE-2021.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\77f227e06e87.json
+SKIP Annual_Report_JUNE-2022.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2243b3df0255.json
+SKIP Annual_Report_JUNE-2023.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d1a8265511d8.json
+SKIP EthSwitch-10th-Annual-Report-202324.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\28e6c80f43d8.json
+OK EthSwitch-Annual-Report-2019.pdf
+doc_id=d7fc91706559
+document_level_strategy_suggestion=strategy_c
+starting_strategy=strategy_c
+executed_strategy=strategy_b
+pages_processed=70
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=70
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=70
+executions_strategy_c=70
+planned_strategy_b=70 executed_strategy_b=70
+planned_strategy_c=70 executed_strategy_c=70
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\d7fc91706559.jsonl
+extracted=.refinery/extracted/d7fc91706559.json
+
+OK Ethswitch-Annual-report-2020.2021_.pdf
+doc_id=293e488d835b
+document_level_strategy_suggestion=strategy_c
+starting_strategy=strategy_c
+executed_strategy=strategy_b
+pages_processed=91
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=91
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=91
+executions_strategy_c=91
+planned_strategy_b=91 executed_strategy_b=91
+planned_strategy_c=91 executed_strategy_c=91
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\293e488d835b.jsonl
+extracted=.refinery/extracted/293e488d835b.json
+
+OK ETHSWITCH-Annual-Report-202122.pdf
+doc_id=ae149d2eb222
+document_level_strategy_suggestion=strategy_b
+starting_strategy=strategy_b
+executed_strategy=strategy_b
+pages_processed=84
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=84
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=84
+executions_strategy_c=0
+planned_strategy_b=84 executed_strategy_b=84
+planned_strategy_c=0 executed_strategy_c=0
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\ae149d2eb222.jsonl
+extracted=.refinery/extracted/ae149d2eb222.json
+
+OK ETS-Annual-Report-2023_2024.pdf
+doc_id=4819edc8de28
+document_level_strategy_suggestion=strategy_b
+starting_strategy=strategy_b
+executed_strategy=strategy_b
+pages_processed=92
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=92
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=92
+executions_strategy_c=0
+planned_strategy_b=92 executed_strategy_b=92
+planned_strategy_c=0 executed_strategy_c=0
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\4819edc8de28.jsonl
+extracted=.refinery/extracted/4819edc8de28.json
+
+SKIP ETS_Annual_Report_2024_2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\afbc8da8449c.json

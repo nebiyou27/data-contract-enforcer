@@ -1,0 +1,86 @@
+Batch run started for 51 PDFs
+SKIP 2013-E.C-Assigned-regular-budget-and-expense.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2d549cbe4764.json
+SKIP 2013-E.C-Audit-finding-information.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d25ff9ccdd3e.json
+SKIP 2013-E.C-Procurement-information.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\38829903f1ba.json
+SKIP 2018_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2a6a53bfeca2.json
+SKIP 20191010_Pharmaceutical-Manufacturing-Opportunites-in-Ethiopia_VF.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2f0a6f26f613.json
+SKIP 2019_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\0ae337c7ce17.json
+SKIP 2020_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\c3bda6e832f2.json
+SKIP 2021_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\f71d58de3304.json
+SKIP 2022_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\78debdb5f7d3.json
+SKIP Annual_Report_JUNE-2017.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\47fefbeba385.json
+SKIP Annual_Report_JUNE-2018.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\191ca35b886f.json
+SKIP Annual_Report_JUNE-2019.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\aca4cb3ee240.json
+SKIP Annual_Report_JUNE-2020.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\01c5a01f27d3.json
+SKIP Annual_Report_JUNE-2021.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\77f227e06e87.json
+SKIP Annual_Report_JUNE-2022.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2243b3df0255.json
+SKIP Annual_Report_JUNE-2023.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d1a8265511d8.json
+SKIP Audit Report - 2023.pdf skip-list
+TIMEOUT CBE Annual Report 2006-7 .pdf after 120s
+
+TIMEOUT CBE Annual Report 2008-9 .pdf after 120s
+
+TIMEOUT CBE Annual Report 2009-10.pdf after 120s
+
+TIMEOUT CBE Annual Report 2010-11.pdf after 120s
+
+TIMEOUT CBE Annual Report 2011-12.pdf after 120s
+
+OK CBE Annual Report 2012-13.pdf
+doc_id=277faf9b9c14
+document_level_strategy_suggestion=strategy_b
+starting_strategy=strategy_b
+executed_strategy=strategy_b
+pages_processed=20
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=20
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=20
+executions_strategy_c=0
+planned_strategy_b=20 executed_strategy_b=20
+planned_strategy_c=0 executed_strategy_c=0
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\277faf9b9c14.jsonl
+extracted=.refinery/extracted/277faf9b9c14.json
+
+TIMEOUT CBE Annual Report 2013-14.pdf after 120s
+
+TIMEOUT CBE Annual Report 2014-15.pdf after 120s
+
+TIMEOUT CBE Annual Report 2015-16.pdf after 120s
+
+TIMEOUT CBE Annual Report 2015-16_1.pdf after 120s
+
+TIMEOUT CBE Annual Report 2016-17.pdf after 120s
+
+TIMEOUT CBE Annual Report 2017-18.pdf after 120s
+
+TIMEOUT CBE Annual Report 2018-19.pdf after 120s
+
+TIMEOUT CBE ANNUAL REPORT 2023-24.pdf after 120s
+
+SKIP Company_Profile_2024_25.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\e4f8530e7c7e.json
+SKIP Consumer Price Index August 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\6a05847d097a.json
+SKIP Consumer Price Index July 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\e2a5bc87d9f6.json
+SKIP Consumer Price Index June 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\7b7c52e89c29.json
+SKIP Consumer Price Index March 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\6364a6bf2474.json
+SKIP Consumer Price Index May 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\5257595bc4f3.json
+SKIP Consumer Price Index September 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\7166d17ff17d.json
+SKIP Consumer Price Index, April 2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\3dbb00f983b9.json
+ERROR ETHIO_RE_AT_A_GLANCE_2023_24.pdf
+status=error doc_id=666c87a98605 message=list index out of range
+
+SKIP EthSwitch-10th-Annual-Report-202324.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\28e6c80f43d8.json
+SKIP EthSwitch-Annual-Report-2019.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d7fc91706559.json
+SKIP Ethswitch-Annual-report-2020.2021_.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\293e488d835b.json
+SKIP ETHSWITCH-Annual-Report-202122.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\ae149d2eb222.json
+SKIP ETS-Annual-Report-2023_2024.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\4819edc8de28.json
+SKIP ETS_Annual_Report_2024_2025.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\afbc8da8449c.json
+SKIP fta_performance_survey_final_report_2022.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\bfd3ac4c67cd.json
+SKIP Minimalist Vintage Line A4 Stationery Paper Document_2.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\a094a2d8de42.json
+TIMEOUT Security_Vulnerability_Disclosure_Standard_Procedure_1.pdf after 120s
+
+SKIP Security_Vulnerability_Disclosure_Standard_Procedure_2.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\548e141f345a.json
+SKIP tax_expenditure_ethiopia_2021_22.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\c9d1e70ee5b9.json

@@ -1,10 +1,10 @@
 {
-  "report_id": "461413a6-f26c-4694-9041-8a02c6182dce",
+  "report_id": "1f07bcab-ac80-42fc-9d6f-cfadb835865e",
   "contract_id": "week3-document-refinery-extractions",
-  "snapshot_id": "82c4b9bb438fa09f2b38bfefc349504a52b23ad536325286450d2e1fab80d80c",
-  "run_timestamp": "2026-04-01T13:47:55.028841+00:00",
-  "total_checks": 51,
-  "passed": 51,
+  "snapshot_id": "eb773d016ccdb77cc0441a9471985fa1147738a054a6578026aad324b40c1e0d",
+  "run_timestamp": "2026-04-01T16:22:16.756727+00:00",
+  "total_checks": 58,
+  "passed": 58,
   "failed": 0,
   "warned": 0,
   "errored": 0,
@@ -19,7 +19,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "doc_id: all 19 values present"
+      "message": "doc_id: all 38 values present"
     },
     {
       "check_id": "documents.doc_id.type",
@@ -43,7 +43,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "doc_id: all 19 values are valid UUIDs"
+      "message": "doc_id: all 38 values are valid UUIDs"
     },
     {
       "check_id": "documents.source_path.required",
@@ -55,7 +55,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "source_path: all 19 values present"
+      "message": "source_path: all 38 values present"
     },
     {
       "check_id": "documents.source_path.type",
@@ -79,7 +79,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "source_hash: all 19 values present"
+      "message": "source_hash: all 38 values present"
     },
     {
       "check_id": "documents.source_hash.type",
@@ -103,7 +103,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "extraction_model: all 19 values present"
+      "message": "extraction_model: all 38 values present"
     },
     {
       "check_id": "documents.extraction_model.type",
@@ -123,11 +123,11 @@
       "check_type": "enum",
       "status": "PASS",
       "actual_value": "all in enum",
-      "expected": "['strategy_a+strategy_b', 'strategy_c', 'strategy_b', 'strategy_a+strategy_b+strategy_c', 'strategy_a', 'strategy_b+strategy_c']",
+      "expected": "['strategy_b', 'strategy_a+strategy_b', 'strategy_c', 'strategy_a+strategy_b+strategy_c', 'strategy_a', 'strategy_b+strategy_c']",
       "severity": "HIGH",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "extraction_model: all 19 values in allowed set"
+      "message": "extraction_model: all 38 values in allowed set"
     },
     {
       "check_id": "documents.processing_time_ms.required",
@@ -139,7 +139,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "processing_time_ms: all 19 values present"
+      "message": "processing_time_ms: all 38 values present"
     },
     {
       "check_id": "documents.processing_time_ms.type",
@@ -154,6 +154,18 @@
       "message": "processing_time_ms: dtype 'int64' matches logical type 'integer'"
     },
     {
+      "check_id": "documents.processing_time_ms.drift",
+      "column_name": "processing_time_ms",
+      "check_type": "drift",
+      "status": "PASS",
+      "actual_value": "mean=226028.789474 (z=0.42)",
+      "expected": "baseline mean=123744.263158 +/- 245340.754294",
+      "severity": "LOW",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "processing_time_ms: drift z=0.42 within normal range"
+    },
+    {
       "check_id": "documents.token_count_input.required",
       "column_name": "token_count_input",
       "check_type": "required",
@@ -163,7 +175,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "token_count_input: all 19 values present"
+      "message": "token_count_input: all 38 values present"
     },
     {
       "check_id": "documents.token_count_input.type",
@@ -178,6 +190,18 @@
       "message": "token_count_input: dtype 'int64' matches logical type 'integer'"
     },
     {
+      "check_id": "documents.token_count_input.drift",
+      "column_name": "token_count_input",
+      "check_type": "drift",
+      "status": "PASS",
+      "actual_value": "mean=25873.605263 (z=0.22)",
+      "expected": "baseline mean=18682.894737 +/- 32144.641456",
+      "severity": "LOW",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "token_count_input: drift z=0.22 within normal range"
+    },
+    {
       "check_id": "documents.token_count_output.required",
       "column_name": "token_count_output",
       "check_type": "required",
@@ -187,7 +211,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "token_count_output: all 19 values present"
+      "message": "token_count_output: all 38 values present"
     },
     {
       "check_id": "documents.token_count_output.type",
@@ -202,6 +226,18 @@
       "message": "token_count_output: dtype 'int64' matches logical type 'integer'"
     },
     {
+      "check_id": "documents.token_count_output.drift",
+      "column_name": "token_count_output",
+      "check_type": "drift",
+      "status": "PASS",
+      "actual_value": "mean=25873.605263 (z=0.22)",
+      "expected": "baseline mean=18682.894737 +/- 32144.641456",
+      "severity": "LOW",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "token_count_output: drift z=0.22 within normal range"
+    },
+    {
       "check_id": "documents.extracted_at.required",
       "column_name": "extracted_at",
       "check_type": "required",
@@ -211,7 +247,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "extracted_at: all 19 values present"
+      "message": "extracted_at: all 38 values present"
     },
     {
       "check_id": "documents.extracted_at.type",
@@ -235,7 +271,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "extracted_at: all 19 values are valid date-time"
+      "message": "extracted_at: all 38 values are valid date-time"
     },
     {
       "check_id": "documents.fact_count.required",
@@ -247,7 +283,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "fact_count: all 19 values present"
+      "message": "fact_count: all 38 values present"
     },
     {
       "check_id": "documents.fact_count.type",
@@ -262,6 +298,18 @@
       "message": "fact_count: dtype 'int64' matches logical type 'integer'"
     },
     {
+      "check_id": "documents.fact_count.drift",
+      "column_name": "fact_count",
+      "check_type": "drift",
+      "status": "PASS",
+      "actual_value": "mean=1178.526316 (z=0.18)",
+      "expected": "baseline mean=1796.736842 +/- 3393.168052",
+      "severity": "LOW",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "fact_count: drift z=0.18 within normal range"
+    },
+    {
       "check_id": "documents.entity_count.required",
       "column_name": "entity_count",
       "check_type": "required",
@@ -271,7 +319,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "entity_count: all 19 values present"
+      "message": "entity_count: all 38 values present"
     },
     {
       "check_id": "documents.entity_count.type",
@@ -286,6 +334,18 @@
       "message": "entity_count: dtype 'int64' matches logical type 'integer'"
     },
     {
+      "check_id": "documents.entity_count.drift",
+      "column_name": "entity_count",
+      "check_type": "drift",
+      "status": "PASS",
+      "actual_value": "mean=66.131579 (z=0.25)",
+      "expected": "baseline mean=48.789474 +/- 68.543238",
+      "severity": "LOW",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "entity_count: drift z=0.25 within normal range"
+    },
+    {
       "check_id": "extracted_facts.doc_id.required",
       "column_name": "doc_id",
       "check_type": "required",
@@ -295,7 +355,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "doc_id: all 34138 values present"
+      "message": "doc_id: all 44784 values present"
     },
     {
       "check_id": "extracted_facts.doc_id.type",
@@ -319,7 +379,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "doc_id: all 34138 values are valid UUIDs"
+      "message": "doc_id: all 44784 values are valid UUIDs"
     },
     {
       "check_id": "extracted_facts.fact_id.required",
@@ -331,7 +391,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "fact_id: all 34138 values present"
+      "message": "fact_id: all 44784 values present"
     },
     {
       "check_id": "extracted_facts.fact_id.type",
@@ -355,7 +415,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "fact_id: all 34138 values are valid UUIDs"
+      "message": "fact_id: all 44784 values are valid UUIDs"
     },
     {
       "check_id": "extracted_facts.text.required",
@@ -367,7 +427,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "text: all 34138 values present"
+      "message": "text: all 44784 values present"
     },
     {
       "check_id": "extracted_facts.text.type",
@@ -391,7 +451,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "confidence: all 34138 values present"
+      "message": "confidence: all 44784 values present"
     },
     {
       "check_id": "extracted_facts.confidence.type",
@@ -415,7 +475,19 @@
       "severity": "HIGH",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "confidence: all 34138 values in range"
+      "message": "confidence: all 44784 values in range"
+    },
+    {
+      "check_id": "extracted_facts.confidence.drift",
+      "column_name": "confidence",
+      "check_type": "drift",
+      "status": "PASS",
+      "actual_value": "mean=0.966817 (z=0.31)",
+      "expected": "baseline mean=0.97843 +/- 0.037003",
+      "severity": "LOW",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "confidence: drift z=0.31 within normal range"
     },
     {
       "check_id": "extracted_facts.page_ref.required",
@@ -427,7 +499,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "page_ref: all 34138 values present"
+      "message": "page_ref: all 44784 values present"
     },
     {
       "check_id": "extracted_facts.page_ref.type",
@@ -442,6 +514,18 @@
       "message": "page_ref: dtype 'int64' matches logical type 'integer'"
     },
     {
+      "check_id": "extracted_facts.page_ref.drift",
+      "column_name": "page_ref",
+      "check_type": "drift",
+      "status": "PASS",
+      "actual_value": "mean=39.659901 (z=0.07)",
+      "expected": "baseline mean=37.791581 +/- 26.303856",
+      "severity": "LOW",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "page_ref: drift z=0.07 within normal range"
+    },
+    {
       "check_id": "extracted_facts.source_excerpt.required",
       "column_name": "source_excerpt",
       "check_type": "required",
@@ -451,7 +535,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "source_excerpt: all 34138 values present"
+      "message": "source_excerpt: all 44784 values present"
     },
     {
       "check_id": "extracted_facts.source_excerpt.type",
@@ -475,7 +559,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "doc_id: all 927 values present"
+      "message": "doc_id: all 2513 values present"
     },
     {
       "check_id": "entities.doc_id.type",
@@ -499,7 +583,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "doc_id: all 927 values are valid UUIDs"
+      "message": "doc_id: all 2513 values are valid UUIDs"
     },
     {
       "check_id": "entities.entity_id.required",
@@ -511,7 +595,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "entity_id: all 927 values present"
+      "message": "entity_id: all 2513 values present"
     },
     {
       "check_id": "entities.entity_id.type",
@@ -535,7 +619,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "entity_id: all 927 values are valid UUIDs"
+      "message": "entity_id: all 2513 values are valid UUIDs"
     },
     {
       "check_id": "entities.name.required",
@@ -547,7 +631,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "name: all 927 values present"
+      "message": "name: all 2513 values present"
     },
     {
       "check_id": "entities.name.type",
@@ -571,7 +655,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "type: all 927 values present"
+      "message": "type: all 2513 values present"
     },
     {
       "check_id": "entities.type.type",
@@ -591,11 +675,11 @@
       "check_type": "enum",
       "status": "PASS",
       "actual_value": "all in enum",
-      "expected": "['ORG', 'DATE', 'AMOUNT']",
+      "expected": "['DATE', 'AMOUNT', 'ORG']",
       "severity": "HIGH",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "type: all 927 values in allowed set"
+      "message": "type: all 2513 values in allowed set"
     },
     {
       "check_id": "entities.canonical_value.required",
@@ -607,7 +691,7 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "canonical_value: all 927 values present"
+      "message": "canonical_value: all 2513 values present"
     },
     {
       "check_id": "entities.canonical_value.type",

@@ -1,0 +1,316 @@
+kind: DataContract
+apiVersion: v3.0.0
+id: week3-document-refinery-extractions
+info:
+  title: 'Data Contract: week3-document-refinery-extractions'
+  version: 1.0.0
+  description: Auto-generated Bitol data contract for week3-document-refinery-extractions. Profiled from 38 source records.
+    Generated at 2026-04-01T16:35:52.085449+00:00.
+  owner: data-engineering
+  contact:
+    name: TRP Week 7 Generator
+servers:
+  production:
+    type: local
+    path: outputs/week3/extractions.jsonl
+    format: jsonl
+    description: Source JSONL from Week 3 batch extraction
+schema:
+  type: json
+  tables:
+  - name: documents
+    description: Profiled from outputs/week3/extractions.jsonl (38 source documents)
+    fields:
+    - name: doc_id
+      type: string
+      required: true
+      format: uuid
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
+    - name: source_path
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
+    - name: source_hash
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
+    - name: extraction_model
+      type: string
+      required: true
+      enum:
+      - strategy_b
+      - strategy_a+strategy_b
+      - strategy_c
+      - strategy_a+strategy_b+strategy_c
+      - strategy_a
+      - strategy_b+strategy_c
+      description: 'Profiled: null_fraction=0.0, cardinality=6'
+    - name: processing_time_ms
+      type: integer
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=38, range=[116.0, 1188768.0], mean=226028.789474'
+    - name: token_count_input
+      type: integer
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=38, range=[90.0, 127271.0], mean=25873.605263'
+    - name: token_count_output
+      type: integer
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=38, range=[90.0, 127271.0], mean=25873.605263'
+    - name: extracted_at
+      type: string
+      required: true
+      format: date-time
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
+    - name: fact_count
+      type: integer
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=37, range=[15.0, 11629.0], mean=1178.526316'
+    - name: entity_count
+      type: integer
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=29, range=[0.0, 227.0], mean=66.131579'
+  - name: extracted_facts
+    description: Profiled from outputs/week3/extractions.jsonl (38 source documents)
+    fields:
+    - name: doc_id
+      type: string
+      required: true
+      format: uuid
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
+    - name: fact_id
+      type: string
+      required: true
+      format: uuid
+      description: 'Profiled: null_fraction=0.0, cardinality=44784'
+    - name: text
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=20555'
+    - name: confidence
+      type: number
+      required: true
+      minimum: 0.0
+      maximum: 1.0
+      description: 'Profiled: null_fraction=0.0, cardinality=183, range=[0.676, 1.0], mean=0.966817'
+    - name: page_ref
+      type: integer
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=155, range=[1.0, 155.0], mean=39.659901'
+    - name: source_excerpt
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=20274'
+  - name: entities
+    description: Profiled from outputs/week3/extractions.jsonl (38 source documents)
+    fields:
+    - name: doc_id
+      type: string
+      required: true
+      format: uuid
+      description: 'Profiled: null_fraction=0.0, cardinality=37'
+    - name: entity_id
+      type: string
+      required: true
+      format: uuid
+      description: 'Profiled: null_fraction=0.0, cardinality=2513'
+    - name: name
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=1273'
+    - name: type
+      type: string
+      required: true
+      enum:
+      - DATE
+      - AMOUNT
+      - ORG
+      description: 'Profiled: null_fraction=0.0, cardinality=3'
+    - name: canonical_value
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=1273'
+quality:
+  type: custom
+  specification: https://bitol.io/specs/quality/v1
+  rules:
+  - name: documents.doc_id.not_null
+    description: doc_id must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE doc_id IS NULL
+    mustBe: 0
+  - name: documents.source_path.not_null
+    description: source_path must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE source_path IS NULL
+    mustBe: 0
+  - name: documents.source_hash.not_null
+    description: source_hash must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE source_hash IS NULL
+    mustBe: 0
+  - name: documents.extraction_model.not_null
+    description: extraction_model must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE extraction_model IS NULL
+    mustBe: 0
+  - name: documents.extraction_model.allowed_values
+    description: extraction_model must be one of the observed categorical values
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM documents WHERE extraction_model NOT IN ('strategy_b', 'strategy_a+strategy_b', 'strategy_c',
+      'strategy_a+strategy_b+strategy_c', 'strategy_a', 'strategy_b+strategy_c') AND extraction_model IS NOT NULL
+    mustBe: 0
+  - name: documents.processing_time_ms.not_null
+    description: processing_time_ms must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE processing_time_ms IS NULL
+    mustBe: 0
+  - name: documents.token_count_input.not_null
+    description: token_count_input must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE token_count_input IS NULL
+    mustBe: 0
+  - name: documents.token_count_output.not_null
+    description: token_count_output must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE token_count_output IS NULL
+    mustBe: 0
+  - name: documents.extracted_at.not_null
+    description: extracted_at must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE extracted_at IS NULL
+    mustBe: 0
+  - name: documents.fact_count.not_null
+    description: fact_count must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE fact_count IS NULL
+    mustBe: 0
+  - name: documents.entity_count.not_null
+    description: entity_count must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE entity_count IS NULL
+    mustBe: 0
+  - name: documents.fact_count.non_negative
+    description: fact_count must be >= 0
+    dimension: validity
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE fact_count < 0
+    mustBe: 0
+  - name: documents.entity_count.non_negative
+    description: entity_count must be >= 0
+    dimension: validity
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE entity_count < 0
+    mustBe: 0
+  - name: extracted_facts.doc_id.not_null
+    description: doc_id must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM extracted_facts WHERE doc_id IS NULL
+    mustBe: 0
+  - name: extracted_facts.fact_id.not_null
+    description: fact_id must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM extracted_facts WHERE fact_id IS NULL
+    mustBe: 0
+  - name: extracted_facts.text.not_null
+    description: text must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM extracted_facts WHERE text IS NULL
+    mustBe: 0
+  - name: extracted_facts.confidence.not_null
+    description: confidence must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM extracted_facts WHERE confidence IS NULL
+    mustBe: 0
+  - name: extracted_facts.confidence.range_check
+    description: confidence must be between 0.0 and 1.0
+    dimension: validity
+    severity: error
+    query: SELECT COUNT(*) FROM extracted_facts WHERE confidence < 0.0 OR confidence > 1.0
+    mustBe: 0
+  - name: extracted_facts.page_ref.not_null
+    description: page_ref must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM extracted_facts WHERE page_ref IS NULL
+    mustBe: 0
+  - name: extracted_facts.source_excerpt.not_null
+    description: source_excerpt must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM extracted_facts WHERE source_excerpt IS NULL
+    mustBe: 0
+  - name: entities.doc_id.not_null
+    description: doc_id must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM entities WHERE doc_id IS NULL
+    mustBe: 0
+  - name: entities.entity_id.not_null
+    description: entity_id must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM entities WHERE entity_id IS NULL
+    mustBe: 0
+  - name: entities.name.not_null
+    description: name must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM entities WHERE name IS NULL
+    mustBe: 0
+  - name: entities.type.not_null
+    description: type must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM entities WHERE type IS NULL
+    mustBe: 0
+  - name: entities.type.allowed_values
+    description: type must be one of the observed categorical values
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM entities WHERE type NOT IN ('DATE', 'AMOUNT', 'ORG') AND type IS NOT NULL
+    mustBe: 0
+  - name: entities.canonical_value.not_null
+    description: canonical_value must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM entities WHERE canonical_value IS NULL
+    mustBe: 0
+lineage:
+  inputPorts:
+  - type: batch_extraction
+    uri: outputs/week3/extractions.jsonl
+    description: Week 3 PDF batch extraction pipeline
+    format: jsonl
+    recordCount: 38
+    capturedAt: '2026-04-01T16:35:52.085449+00:00'
+  - type: upstream
+    uri: unknown
+    description: ''
+    capturedAt: '2026-04-01T16:30:13.679865+00:00'
+  outputPorts:
+  - type: data_contract
+    uri: generated_contracts/week3-document-refinery-extractions.yaml
+    description: Generated Bitol YAML data contract
+    generatedAt: '2026-04-01T16:35:52.085449+00:00'
+  - type: dbt_schema
+    uri: generated_contracts/week3-document-refinery-extractions_dbt_schema.yml
+    description: dbt schema.yml for downstream model testing
+    generatedAt: '2026-04-01T16:35:52.085449+00:00'
+generatedAt: '2026-04-01T16:35:52.085449+00:00'
+generatorVersion: 1.0.0

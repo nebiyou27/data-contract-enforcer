@@ -38,6 +38,7 @@ def parse_args() -> argparse.Namespace:
         help="Skip a PDF by filename. Repeatable.",
     )
     parser.add_argument("--output", type=Path, default=Path("outputs/week3/extractions.jsonl"))
+    parser.add_argument("--timeout-seconds", type=int, default=120, help="Per-PDF timeout in seconds.")
     parser.add_argument("--log-file", type=Path, default=Path("outputs/week3/batch_extract.log"))
     return parser.parse_args()
 
@@ -70,12 +71,13 @@ def build_existing_index(extracted_dir: Path) -> dict[str, Path]:
     return index
 
 
-def run_extractor(week3_python: Path, week3_repo: Path, pdf_path: Path) -> subprocess.CompletedProcess[str]:
+def run_extractor(week3_python: Path, week3_repo: Path, pdf_path: Path, timeout_seconds: int) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(week3_python), "scripts/run_extract.py", str(pdf_path)],
         cwd=str(week3_repo),
         text=True,
         capture_output=True,
+        timeout=timeout_seconds,
     )
 
 
@@ -105,6 +107,7 @@ def main() -> int:
     include_prefixes = [prefix.lower() for prefix in args.include_prefix]
     skip_names = {name.lower() for name in args.skip_name} | DEFAULT_SKIP_NAMES
     output_path = args.output
+    timeout_seconds = args.timeout_seconds
     log_file = args.log_file
 
     log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -141,7 +144,13 @@ def main() -> int:
                 log.write(f"SKIP {pdf_path.name} already extracted -> {existing}\n")
                 continue
 
-            result = run_extractor(week3_python, week3_repo, pdf_path)
+            try:
+                result = run_extractor(week3_python, week3_repo, pdf_path, timeout_seconds)
+            except subprocess.TimeoutExpired:
+                failed += 1
+                log.write(f"TIMEOUT {pdf_path.name} after {timeout_seconds}s\n")
+                log.write("\n")
+                continue
             if result.returncode != 0:
                 failed += 1
                 log.write(f"ERROR {pdf_path.name}\n")

@@ -1,55 +1,55 @@
 {
   "week3-document-refinery-extractions/documents": {
     "processing_time_ms": {
-      "mean": 123744.263158,
-      "stddev": 245340.754294,
+      "mean": 226028.789474,
+      "stddev": 298932.137208,
       "min": 116.0,
-      "max": 1036312.0,
-      "count": 19
+      "max": 1188768.0,
+      "count": 38
     },
     "token_count_input": {
-      "mean": 18682.894737,
-      "stddev": 32144.641456,
+      "mean": 25873.605263,
+      "stddev": 31440.689823,
       "min": 90.0,
       "max": 127271.0,
-      "count": 19
+      "count": 38
     },
     "token_count_output": {
-      "mean": 18682.894737,
-      "stddev": 32144.641456,
+      "mean": 25873.605263,
+      "stddev": 31440.689823,
       "min": 90.0,
       "max": 127271.0,
-      "count": 19
+      "count": 38
     },
     "fact_count": {
-      "mean": 1796.736842,
-      "stddev": 3393.168052,
+      "mean": 1178.526316,
+      "stddev": 2468.596994,
       "min": 15.0,
       "max": 11629.0,
-      "count": 19
+      "count": 38
     },
     "entity_count": {
-      "mean": 48.789474,
-      "stddev": 68.543238,
+      "mean": 66.131579,
+      "stddev": 73.1493,
       "min": 0.0,
       "max": 227.0,
-      "count": 19
+      "count": 38
     }
   },
   "week3-document-refinery-extractions/extracted_facts": {
     "confidence": {
-      "mean": 0.97843,
-      "stddev": 0.037003,
+      "mean": 0.966817,
+      "stddev": 0.041316,
       "min": 0.676,
       "max": 1.0,
-      "count": 34138
+      "count": 44784
     },
     "page_ref": {
-      "mean": 37.791581,
-      "stddev": 26.303856,
+      "mean": 39.659901,
+      "stddev": 27.460381,
       "min": 1.0,
-      "max": 104.0,
-      "count": 34138
+      "max": 155.0,
+      "count": 44784
     }
   },
   "week5-event-store/documents": {
