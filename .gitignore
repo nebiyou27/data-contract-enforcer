@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .env
 Challenge_Documents/*.docx
+thursday_report.md
