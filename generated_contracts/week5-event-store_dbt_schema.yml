@@ -1,0 +1,29 @@
+version: 2
+models:
+- name: documents
+  description: Model for documents -- derived from contract week5-event-store
+  columns:
+  - name: doc_id
+    tests:
+    - unique
+  - name: source_path
+  - name: source_hash
+  - name: extraction_model
+  - name: processing_time_ms
+  - name: token_count_input
+  - name: token_count_output
+  - name: extracted_at
+  - name: fact_count
+    tests:
+    - not_null
+    description: Numeric. range=[0.0, 0.0], mean=0.0, stddev=0.0
+  - name: entity_count
+    tests:
+    - not_null
+    description: Numeric. range=[0.0, 0.0], mean=0.0, stddev=0.0
+- name: extracted_facts
+  description: Model for extracted_facts -- derived from contract week5-event-store
+  columns: []
+- name: entities
+  description: Model for entities -- derived from contract week5-event-store
+  columns: []

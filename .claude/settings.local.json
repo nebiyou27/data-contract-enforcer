@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(venv/Scripts/python scripts/migrate_week5.py)"
+    ]
+  }
+}

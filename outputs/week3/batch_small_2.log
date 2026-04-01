@@ -1,0 +1,50 @@
+Batch run started for 11 PDFs
+SKIP 2013-E.C-Assigned-regular-budget-and-expense.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2d549cbe4764.json
+SKIP 2013-E.C-Audit-finding-information.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\d25ff9ccdd3e.json
+SKIP 2013-E.C-Procurement-information.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\38829903f1ba.json
+SKIP 2018_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\2a6a53bfeca2.json
+SKIP 2019_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\0ae337c7ce17.json
+SKIP 2020_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\c3bda6e832f2.json
+SKIP 2021_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\f71d58de3304.json
+SKIP 2022_Audited_Financial_Statement_Report.pdf already extracted -> D:\TRP-1\Week-3\document-refinery\.refinery\extracted\78debdb5f7d3.json
+ERROR ETHIO_RE_AT_A_GLANCE_2023_24.pdf
+status=error doc_id=666c87a98605 message=list index out of range
+
+OK fta_performance_survey_final_report_2022.pdf
+doc_id=bfd3ac4c67cd
+document_level_strategy_suggestion=strategy_b
+starting_strategy=strategy_b
+executed_strategy=strategy_b
+pages_processed=155
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=155
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=155
+executions_strategy_c=0
+planned_strategy_b=155 executed_strategy_b=155
+planned_strategy_c=0 executed_strategy_c=0
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\bfd3ac4c67cd.jsonl
+extracted=.refinery/extracted/bfd3ac4c67cd.json
+
+OK tax_expenditure_ethiopia_2021_22.pdf
+doc_id=c9d1e70ee5b9
+document_level_strategy_suggestion=strategy_b
+starting_strategy=strategy_b
+executed_strategy=strategy_b
+pages_processed=60
+pages_escalated=0
+final_pages_strategy_a=0
+final_pages_strategy_b=60
+final_pages_strategy_c=0
+executions_strategy_a=0
+executions_strategy_b=60
+executions_strategy_c=0
+planned_strategy_b=60 executed_strategy_b=60
+planned_strategy_c=0 executed_strategy_c=0
+planned_escalations_pct=0.00%
+ledger=.refinery\extraction_ledger\c9d1e70ee5b9.jsonl
+extracted=.refinery/extracted/c9d1e70ee5b9.json
+

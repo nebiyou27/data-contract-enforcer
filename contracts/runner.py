@@ -34,12 +34,22 @@ import pandas as pd
 import yaml
 
 # Import flatten helpers from generator (same package)
-from contracts.generator import (
-    flatten_documents,
-    flatten_entities,
-    flatten_facts,
-    load_jsonl,
-)
+try:
+    from contracts.generator import (
+        flatten_documents,
+        flatten_entities,
+        flatten_facts,
+        load_jsonl,
+    )
+except ModuleNotFoundError:
+    # Direct script invocation: add project root to path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from contracts.generator import (
+        flatten_documents,
+        flatten_entities,
+        flatten_facts,
+        load_jsonl,
+    )
 
 # ---------------------------------------------------------------------------
 # Constants

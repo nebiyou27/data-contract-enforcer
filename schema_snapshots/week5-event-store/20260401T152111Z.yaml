@@ -1,0 +1,109 @@
+kind: DataContract
+apiVersion: v3.0.0
+id: week5-event-store
+info:
+  title: 'Data Contract: week5-event-store'
+  version: 1.0.0
+  description: Auto-generated Bitol data contract for week5-event-store. Profiled from 1198 source records. Generated at 2026-04-01T15:21:11.634579+00:00.
+  owner: data-engineering
+  contact:
+    name: TRP Week 7 Generator
+servers:
+  production:
+    type: local
+    path: outputs/week5/events.jsonl
+    format: jsonl
+    description: Source JSONL from Week 3 batch extraction
+schema:
+  type: json
+  tables:
+  - name: documents
+    description: Profiled from outputs/week5/events.jsonl (1198 source documents)
+    fields:
+    - name: doc_id
+      type: string
+      format: uuid
+      description: 'Profiled: null_fraction=1.0, cardinality=0'
+    - name: source_path
+      type: string
+      description: 'Profiled: null_fraction=1.0, cardinality=0'
+    - name: source_hash
+      type: string
+      description: 'Profiled: null_fraction=1.0, cardinality=0'
+    - name: extraction_model
+      type: string
+      description: 'Profiled: null_fraction=1.0, cardinality=0'
+    - name: processing_time_ms
+      type: string
+      description: 'Profiled: null_fraction=1.0, cardinality=0'
+    - name: token_count_input
+      type: string
+      description: 'Profiled: null_fraction=1.0, cardinality=0'
+    - name: token_count_output
+      type: string
+      description: 'Profiled: null_fraction=1.0, cardinality=0'
+    - name: extracted_at
+      type: string
+      format: date-time
+      description: 'Profiled: null_fraction=1.0, cardinality=0'
+    - name: fact_count
+      type: integer
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=1, range=[0.0, 0.0], mean=0.0'
+    - name: entity_count
+      type: integer
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=1, range=[0.0, 0.0], mean=0.0'
+  - name: extracted_facts
+    description: Profiled from outputs/week5/events.jsonl (1198 source documents)
+    fields: []
+  - name: entities
+    description: Profiled from outputs/week5/events.jsonl (1198 source documents)
+    fields: []
+quality:
+  type: custom
+  specification: https://bitol.io/specs/quality/v1
+  rules:
+  - name: documents.fact_count.not_null
+    description: fact_count must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE fact_count IS NULL
+    mustBe: 0
+  - name: documents.entity_count.not_null
+    description: entity_count must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE entity_count IS NULL
+    mustBe: 0
+  - name: documents.fact_count.non_negative
+    description: fact_count must be >= 0
+    dimension: validity
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE fact_count < 0
+    mustBe: 0
+  - name: documents.entity_count.non_negative
+    description: entity_count must be >= 0
+    dimension: validity
+    severity: error
+    query: SELECT COUNT(*) FROM documents WHERE entity_count < 0
+    mustBe: 0
+lineage:
+  inputPorts:
+  - type: batch_extraction
+    uri: outputs/week5/events.jsonl
+    description: Week 3 PDF batch extraction pipeline
+    format: jsonl
+    recordCount: 1198
+    capturedAt: '2026-04-01T15:21:11.634579+00:00'
+  outputPorts:
+  - type: data_contract
+    uri: generated_contracts/week5-event-store.yaml
+    description: Generated Bitol YAML data contract
+    generatedAt: '2026-04-01T15:21:11.634579+00:00'
+  - type: dbt_schema
+    uri: generated_contracts/week5-event-store_dbt_schema.yml
+    description: dbt schema.yml for downstream model testing
+    generatedAt: '2026-04-01T15:21:11.634579+00:00'
+generatedAt: '2026-04-01T15:21:11.634579+00:00'
+generatorVersion: 1.0.0
