@@ -259,17 +259,19 @@ python contracts/runner.py
 
 ### Check Execution Order
 
-Checks run in a fixed order — structural first, statistical last:
+Checks run in a fixed order — schema evolution first, structural next, statistical last:
 
 | # | Check Type | Severity | Triggers |
 |---|---|---|---|
-| 1 | `required` | CRITICAL | Any null in a `required: true` field |
-| 2 | `type` | CRITICAL | Actual dtype incompatible with logical type |
-| 3 | `enum` | HIGH | Any value not in `enum` list |
-| 4 | `format_uuid` | CRITICAL | UUID field fails regex match |
-| 5 | `format_datetime` | CRITICAL | Date-time field fails ISO 8601 regex |
-| 6 | `range` | HIGH | Numeric field outside `[minimum, maximum]` |
-| 7 | `drift` | LOW | Z-score > 2σ (WARN) or > 3σ (FAIL) vs baseline |
+| 1 | `schema_missing` | CRITICAL | Declared contract column is absent from the observed table |
+| 2 | `schema_new_column` | MEDIUM | Observed table contains a column not declared in the contract |
+| 3 | `required` | CRITICAL | Any null in a `required: true` field |
+| 4 | `type` | CRITICAL | Actual dtype incompatible with logical type |
+| 5 | `enum` | HIGH | Any value not in `enum` list |
+| 6 | `format_uuid` | CRITICAL | UUID field fails regex match |
+| 7 | `format_datetime` | CRITICAL | Date-time field fails ISO 8601 regex |
+| 8 | `range` | HIGH | Numeric field outside `[minimum, maximum]` |
+| 9 | `drift` | LOW | Z-score > 2σ (WARN) or > 3σ (FAIL) vs baseline |
 
 ### Drift Detection
 

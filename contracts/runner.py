@@ -6,8 +6,9 @@ Reads a Bitol contract YAML + data JSONL, checks every clause, and produces
 a structured JSON validation report.
 
 Check order:
-  1. Structural: required fields, type match, enum conformance, UUID pattern, date-time format
-  2. Statistical: min/max range, drift vs baseline (WARN >2 stddev, FAIL >3 stddev)
+  1. Schema evolution: compare observed columns to declared contract fields
+  2. Structural: required fields, type match, enum conformance, UUID pattern, date-time format
+  3. Statistical: min/max range, drift vs baseline (WARN >2 stddev, FAIL >3 stddev)
 
 Never crashes -- if a check can't run, it returns status "ERROR" and continues.
 
@@ -112,6 +113,79 @@ def _result(
         "records_failing": records_failing,
         "sample_failing": sample_failing or [],
         "message": message,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Schema evolution checks
+# ---------------------------------------------------------------------------
+
+
+def check_schema_evolution(table: str, fields: list[dict], df: pd.DataFrame) -> list[dict]:
+    """Compare declared contract fields with observed DataFrame columns."""
+    expected_columns = {field["name"] for field in fields}
+    actual_columns = set(df.columns)
+    results: list[dict] = []
+
+    missing_columns = sorted(expected_columns - actual_columns)
+    extra_columns = sorted(actual_columns - expected_columns)
+
+    for col in missing_columns:
+        results.append(_result(
+            f"{table}.{col}.schema_missing",
+            col,
+            "schema_missing",
+            "FAIL",
+            "missing from data",
+            "present in contract",
+            "CRITICAL",
+            message=(
+                f"Column '{col}' is declared in table '{table}' but missing from the data"
+            ),
+        ))
+
+    for col in extra_columns:
+        results.append(_result(
+            f"{table}.{col}.schema_new_column",
+            col,
+            "schema_new_column",
+            "WARN",
+            "present in data",
+            "absent from contract",
+            "MEDIUM",
+            message=(
+                f"Column '{col}' is present in the data for table '{table}' "
+                "but not declared in the contract"
+            ),
+        ))
+
+    return results
+
+
+def summarize_schema_evolution(results: list[dict]) -> dict:
+    """Summarize schema-evolution results for the report header."""
+    missing_columns: list[dict] = []
+    new_columns: list[dict] = []
+
+    for result in results:
+        if result["check_type"] == "schema_missing":
+            missing_columns.append(
+                {
+                    "table": result["check_id"].rsplit(".", 2)[0],
+                    "column": result["column_name"],
+                }
+            )
+        elif result["check_type"] == "schema_new_column":
+            new_columns.append(
+                {
+                    "table": result["check_id"].rsplit(".", 2)[0],
+                    "column": result["column_name"],
+                }
+            )
+
+    return {
+        "missing_columns": missing_columns,
+        "new_columns": new_columns,
     }
 
 
@@ -419,9 +493,14 @@ def run_table_checks(
     baseline_key = f"{contract_id}/{table_name}"
     table_baseline = baselines.get(baseline_key, {})
 
+    # Compare schema first so drift is visible before field-level validation.
+    results.extend(check_schema_evolution(table_name, fields, df))
+
     for field in fields:
         col = field["name"]
-        series = df[col] if col in df.columns else None
+        if col not in df.columns:
+            continue
+        series = df[col]
 
         # --- Structural checks ---
 
@@ -623,8 +702,18 @@ def main(argv: list[str] | None = None) -> int:
     warned = sum(1 for r in all_results if r["status"] == "WARN")
     errored = sum(1 for r in all_results if r["status"] == "ERROR")
     total = len(all_results)
+    schema_summary = summarize_schema_evolution(all_results)
 
     print(f"  Total: {total}  PASS: {passed}  FAIL: {failed}  WARN: {warned}  ERROR: {errored}")
+    if schema_summary["missing_columns"] or schema_summary["new_columns"]:
+        missing_text = ", ".join(
+            f"{item['table']}.{item['column']}" for item in schema_summary["missing_columns"]
+        ) or "none"
+        new_text = ", ".join(
+            f"{item['table']}.{item['column']}" for item in schema_summary["new_columns"]
+        ) or "none"
+        print(f"  Schema missing: {missing_text}")
+        print(f"  Schema new: {new_text}")
 
     # Build report
     report = {
@@ -637,6 +726,7 @@ def main(argv: list[str] | None = None) -> int:
         "failed": failed,
         "warned": warned,
         "errored": errored,
+        "schema_summary": schema_summary,
         "results": all_results,
     }
 
