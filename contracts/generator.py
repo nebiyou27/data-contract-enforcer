@@ -451,6 +451,18 @@ def build_quality_rules(table_name: str, profiles: list[dict], total_rows: int =
                 }
             )
 
+    if table_name == "extracted_facts":
+        if any(p["name"] == "doc_id" for p in profiles):
+            rules.append(
+                {
+                    "name": "extracted_facts.doc_id.references.documents.doc_id",
+                    "description": "doc_id in extracted_facts must exist in documents",
+                    "dimension": "integrity",
+                    "severity": "error",
+                    "query": "SELECT COUNT(*) FROM extracted_facts f LEFT JOIN documents d ON f.doc_id = d.doc_id WHERE d.doc_id IS NULL",
+                    "mustBe": 0,
+                }
+            )
     return rules
 
 

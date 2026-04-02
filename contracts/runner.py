@@ -8,7 +8,12 @@ a structured JSON validation report.
 Check order:
   1. Schema evolution: compare observed columns to declared contract fields
   2. Structural: required fields, type match, enum conformance, UUID pattern, date-time format
-  3. Statistical: min/max range, drift vs baseline (WARN >2 stddev, FAIL >3 stddev)
+  3. Statistical: min/max range, then five drift sub-checks vs baseline
+     drift_mean:          z-score on column mean          (WARN >2σ, FAIL >3σ)
+     drift_variance:      stddev ratio                    (WARN >2×/<0.25×, FAIL >4×)
+     drift_outliers:      new extremes outside baseline   (WARN one end, FAIL both ends)
+     drift_null_fraction: null-fraction growth            (WARN >5 pp, FAIL >20 pp)
+     drift_cardinality:   unique-value spike or collapse  (WARN >2×/<0.5×, FAIL >5×)
 
 Never crashes -- if a check can't run, it returns status "ERROR" and continues.
 
@@ -352,6 +357,75 @@ def check_datetime_format(table: str, field: dict, series: pd.Series | None) -> 
 
 
 # ---------------------------------------------------------------------------
+# Cross-table checks
+# ---------------------------------------------------------------------------
+
+
+def check_referential_integrity(
+    child_table: str,
+    child_column: str,
+    child_series: pd.Series | None,
+    parent_table: str,
+    parent_column: str,
+    parent_series: pd.Series | None,
+) -> dict:
+    """Check that every child key exists in the parent table."""
+    cid = f"{child_table}.{child_column}.references.{parent_table}.{parent_column}"
+
+    if child_series is None or parent_series is None:
+        return _result(
+            cid,
+            child_column,
+            "referential_integrity",
+            "ERROR",
+            "missing relationship input",
+            f"{child_table}.{child_column} -> {parent_table}.{parent_column}",
+            "CRITICAL",
+            message=(
+                f"Unable to validate referential integrity between "
+                f"'{child_table}.{child_column}' and '{parent_table}.{parent_column}'"
+            ),
+        )
+
+    child_values = child_series.dropna().astype(str)
+    parent_values = set(parent_series.dropna().astype(str))
+    orphans = child_values[~child_values.isin(parent_values)]
+    count = int(len(orphans))
+
+    if count == 0:
+        return _result(
+            cid,
+            child_column,
+            "referential_integrity",
+            "PASS",
+            f"all {len(child_values)} values matched",
+            f"{parent_table}.{parent_column}",
+            "CRITICAL",
+            message=(
+                f"{child_table}.{child_column}: all {len(child_values)} values "
+                f"exist in {parent_table}.{parent_column}"
+            ),
+        )
+
+    bad_vals = orphans.head(5).tolist()
+    return _result(
+        cid,
+        child_column,
+        "referential_integrity",
+        "FAIL",
+        f"{count} missing parent keys",
+        f"{parent_table}.{parent_column}",
+        "CRITICAL",
+        records_failing=count,
+        sample_failing=bad_vals,
+        message=(
+            f"{child_table}.{child_column}: {count} values do not exist in "
+            f"{parent_table}.{parent_column}"
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Statistical checks
 # ---------------------------------------------------------------------------
 
@@ -401,7 +475,15 @@ def check_min_max(table: str, field: dict, series: pd.Series | None) -> dict:
 
 
 def compute_column_stats(series: pd.Series) -> dict | None:
-    """Compute baseline-comparable stats for a numeric column."""
+    """Compute baseline-comparable stats for a numeric column.
+
+    null_fraction and cardinality are derived from the full series (including
+    nulls) so they can drive drift checks even when the column is mostly clean.
+    """
+    total = len(series)
+    null_count = int(series.isna().sum())
+    null_fraction = round(null_count / total, 6) if total > 0 else 0.0
+
     numeric = pd.to_numeric(series.dropna(), errors="coerce").dropna()
     if numeric.empty or len(numeric) < 2:
         return None
@@ -411,34 +493,35 @@ def compute_column_stats(series: pd.Series) -> dict | None:
         "min": round(float(numeric.min()), 6),
         "max": round(float(numeric.max()), 6),
         "count": int(len(numeric)),
+        "null_fraction": null_fraction,
+        "cardinality": int(numeric.nunique()),
     }
 
 
-def check_drift(
+def check_drift_mean(
     table: str,
     col: str,
     current_stats: dict,
     baseline_stats: dict,
 ) -> dict:
-    """Compare current stats against baseline. WARN >2 stddev, FAIL >3 stddev."""
-    cid = f"{table}.{col}.drift"
+    """Z-score on column mean. WARN >2σ, FAIL >3σ."""
+    cid = f"{table}.{col}.drift_mean"
 
     baseline_mean = baseline_stats["mean"]
     baseline_stddev = baseline_stats["stddev"]
     current_mean = current_stats["mean"]
 
     if baseline_stddev == 0:
-        # No variance in baseline -- any change is notable
         if current_mean != baseline_mean:
             return _result(
-                cid, col, "drift", "WARN", current_mean, baseline_mean, "MEDIUM",
+                cid, col, "drift_mean", "WARN", current_mean, baseline_mean, "MEDIUM",
                 message=(
                     f"{col}: baseline had zero variance (mean={baseline_mean}), "
                     f"current mean={current_mean}"
                 ),
             )
         return _result(
-            cid, col, "drift", "PASS", current_mean, baseline_mean, "LOW",
+            cid, col, "drift_mean", "PASS", current_mean, baseline_mean, "LOW",
             message=f"{col}: zero-variance column unchanged",
         )
 
@@ -446,25 +529,260 @@ def check_drift(
 
     if z_score > 3:
         return _result(
-            cid, col, "drift", "FAIL",
+            cid, col, "drift_mean", "FAIL",
             f"mean={current_mean} (z={z_score:.2f})",
-            f"baseline mean={baseline_mean} +/- {baseline_stddev}",
-            "HIGH", message=f"{col}: statistical drift z={z_score:.2f} > 3 stddev",
+            f"baseline mean={baseline_mean} ± {baseline_stddev}",
+            "HIGH", message=f"{col}: mean drift z={z_score:.2f} > 3σ",
         )
-    elif z_score > 2:
+    if z_score > 2:
         return _result(
-            cid, col, "drift", "WARN",
+            cid, col, "drift_mean", "WARN",
             f"mean={current_mean} (z={z_score:.2f})",
-            f"baseline mean={baseline_mean} +/- {baseline_stddev}",
-            "MEDIUM", message=f"{col}: statistical drift z={z_score:.2f} > 2 stddev",
+            f"baseline mean={baseline_mean} ± {baseline_stddev}",
+            "MEDIUM", message=f"{col}: mean drift z={z_score:.2f} > 2σ",
         )
-    else:
+    return _result(
+        cid, col, "drift_mean", "PASS",
+        f"mean={current_mean} (z={z_score:.2f})",
+        f"baseline mean={baseline_mean} ± {baseline_stddev}",
+        "LOW", message=f"{col}: mean drift z={z_score:.2f} within normal range",
+    )
+
+
+def check_drift_variance(
+    table: str,
+    col: str,
+    current_stats: dict,
+    baseline_stats: dict,
+) -> dict | None:
+    """Stddev ratio vs baseline. WARN >2× or <0.25×; FAIL >4×.
+
+    Returns None when either side lacks a stddev (old baseline format).
+    """
+    b_std = baseline_stats.get("stddev")
+    c_std = current_stats.get("stddev")
+    if b_std is None or c_std is None:
+        return None
+
+    cid = f"{table}.{col}.drift_variance"
+
+    if b_std == 0:
+        if c_std > 0:
+            return _result(
+                cid, col, "drift_variance", "WARN",
+                f"stddev={c_std:.6f}", "baseline stddev=0", "MEDIUM",
+                message=f"{col}: variance appeared (baseline was zero-variance, current stddev={c_std:.6f})",
+            )
         return _result(
-            cid, col, "drift", "PASS",
-            f"mean={current_mean} (z={z_score:.2f})",
-            f"baseline mean={baseline_mean} +/- {baseline_stddev}",
-            "LOW", message=f"{col}: drift z={z_score:.2f} within normal range",
+            cid, col, "drift_variance", "PASS",
+            "stddev=0", "stddev=0", "LOW",
+            message=f"{col}: variance unchanged (both zero)",
         )
+
+    ratio = c_std / b_std
+
+    if ratio > 4.0:
+        return _result(
+            cid, col, "drift_variance", "FAIL",
+            f"stddev={c_std:.6f} (ratio={ratio:.2f}×)",
+            f"baseline stddev={b_std:.6f}",
+            "HIGH", message=f"{col}: variance explosion ratio={ratio:.2f}× > 4×",
+        )
+    if ratio > 2.0:
+        return _result(
+            cid, col, "drift_variance", "WARN",
+            f"stddev={c_std:.6f} (ratio={ratio:.2f}×)",
+            f"baseline stddev={b_std:.6f}",
+            "MEDIUM", message=f"{col}: variance inflation ratio={ratio:.2f}× > 2×",
+        )
+    if ratio < 0.25:
+        return _result(
+            cid, col, "drift_variance", "WARN",
+            f"stddev={c_std:.6f} (ratio={ratio:.2f}×)",
+            f"baseline stddev={b_std:.6f}",
+            "MEDIUM", message=f"{col}: variance collapse ratio={ratio:.2f}× < 0.25×",
+        )
+    return _result(
+        cid, col, "drift_variance", "PASS",
+        f"stddev={c_std:.6f} (ratio={ratio:.2f}×)",
+        f"baseline stddev={b_std:.6f}",
+        "LOW", message=f"{col}: variance ratio={ratio:.2f}× within normal range",
+    )
+
+
+def check_drift_outliers(
+    table: str,
+    col: str,
+    current_stats: dict,
+    baseline_stats: dict,
+) -> dict | None:
+    """New observed extremes outside the baseline's observed range.
+
+    WARN when one end is breached; FAIL when both ends are breached.
+    Returns None when either side lacks min/max (old baseline format).
+    """
+    b_min = baseline_stats.get("min")
+    b_max = baseline_stats.get("max")
+    c_min = current_stats.get("min")
+    c_max = current_stats.get("max")
+    if any(v is None for v in (b_min, b_max, c_min, c_max)):
+        return None
+
+    cid = f"{table}.{col}.drift_outliers"
+    new_low = c_min < b_min
+    new_high = c_max > b_max
+
+    if new_low and new_high:
+        return _result(
+            cid, col, "drift_outliers", "FAIL",
+            f"[{c_min}, {c_max}]", f"baseline [{b_min}, {b_max}]",
+            "HIGH",
+            message=(
+                f"{col}: new outliers on both ends "
+                f"(min {c_min} < baseline {b_min}, max {c_max} > baseline {b_max})"
+            ),
+        )
+    if new_low:
+        return _result(
+            cid, col, "drift_outliers", "WARN",
+            f"min={c_min}", f"baseline min={b_min}",
+            "MEDIUM", message=f"{col}: new low outlier min={c_min} below baseline min={b_min}",
+        )
+    if new_high:
+        return _result(
+            cid, col, "drift_outliers", "WARN",
+            f"max={c_max}", f"baseline max={b_max}",
+            "MEDIUM", message=f"{col}: new high outlier max={c_max} above baseline max={b_max}",
+        )
+    return _result(
+        cid, col, "drift_outliers", "PASS",
+        f"[{c_min}, {c_max}]", f"baseline [{b_min}, {b_max}]",
+        "LOW", message=f"{col}: observed range within baseline bounds",
+    )
+
+
+def check_drift_null_fraction(
+    table: str,
+    col: str,
+    current_stats: dict,
+    baseline_stats: dict,
+) -> dict | None:
+    """Null-fraction growth vs baseline.
+
+    WARN >5 pp growth; FAIL >20 pp growth.
+    Any nulls on a previously fully-populated column are flagged immediately.
+    Returns None when either side lacks null_fraction (old baseline format).
+    """
+    b_nf = baseline_stats.get("null_fraction")
+    c_nf = current_stats.get("null_fraction")
+    if b_nf is None or c_nf is None:
+        return None
+
+    cid = f"{table}.{col}.drift_null_fraction"
+    delta = c_nf - b_nf
+
+    if b_nf == 0.0 and c_nf > 0.0:
+        status = "FAIL" if c_nf > 0.20 else "WARN"
+        severity = "HIGH" if status == "FAIL" else "MEDIUM"
+        return _result(
+            cid, col, "drift_null_fraction", status,
+            f"null_fraction={c_nf:.4f}", "baseline null_fraction=0.0",
+            severity,
+            message=f"{col}: nulls appeared on previously fully-populated column ({c_nf:.1%} null)",
+        )
+    if delta > 0.20:
+        return _result(
+            cid, col, "drift_null_fraction", "FAIL",
+            f"null_fraction={c_nf:.4f} (Δ={delta:+.4f})",
+            f"baseline null_fraction={b_nf:.4f}",
+            "HIGH", message=f"{col}: null fraction grew by {delta:.1%} > 20 pp threshold",
+        )
+    if delta > 0.05:
+        return _result(
+            cid, col, "drift_null_fraction", "WARN",
+            f"null_fraction={c_nf:.4f} (Δ={delta:+.4f})",
+            f"baseline null_fraction={b_nf:.4f}",
+            "MEDIUM", message=f"{col}: null fraction grew by {delta:.1%} > 5 pp threshold",
+        )
+    return _result(
+        cid, col, "drift_null_fraction", "PASS",
+        f"null_fraction={c_nf:.4f} (Δ={delta:+.4f})",
+        f"baseline null_fraction={b_nf:.4f}",
+        "LOW", message=f"{col}: null fraction stable (Δ={delta:+.1%})",
+    )
+
+
+def check_drift_cardinality(
+    table: str,
+    col: str,
+    current_stats: dict,
+    baseline_stats: dict,
+) -> dict | None:
+    """Unique-value spike or collapse vs baseline.
+
+    WARN >2× or <0.5×; FAIL >5×.
+    Returns None when either side lacks cardinality (old baseline format).
+    """
+    b_card = baseline_stats.get("cardinality")
+    c_card = current_stats.get("cardinality")
+    if b_card is None or c_card is None:
+        return None
+
+    cid = f"{table}.{col}.drift_cardinality"
+
+    if b_card == 0:
+        if c_card > 0:
+            return _result(
+                cid, col, "drift_cardinality", "WARN",
+                f"cardinality={c_card}", "baseline cardinality=0",
+                "MEDIUM",
+                message=f"{col}: cardinality appeared (baseline was empty, now {c_card} unique values)",
+            )
+        return _result(
+            cid, col, "drift_cardinality", "PASS",
+            "cardinality=0", "baseline cardinality=0",
+            "LOW", message=f"{col}: cardinality unchanged (both empty)",
+        )
+
+    ratio = c_card / b_card
+
+    if ratio > 5.0:
+        return _result(
+            cid, col, "drift_cardinality", "FAIL",
+            f"cardinality={c_card} (ratio={ratio:.2f}×)",
+            f"baseline cardinality={b_card}",
+            "HIGH", message=f"{col}: cardinality explosion ratio={ratio:.2f}× > 5×",
+        )
+    if ratio > 2.0:
+        return _result(
+            cid, col, "drift_cardinality", "WARN",
+            f"cardinality={c_card} (ratio={ratio:.2f}×)",
+            f"baseline cardinality={b_card}",
+            "MEDIUM", message=f"{col}: cardinality spike ratio={ratio:.2f}× > 2×",
+        )
+    if ratio < 0.5:
+        return _result(
+            cid, col, "drift_cardinality", "WARN",
+            f"cardinality={c_card} (ratio={ratio:.2f}×)",
+            f"baseline cardinality={b_card}",
+            "MEDIUM", message=f"{col}: cardinality collapse ratio={ratio:.2f}× < 0.5×",
+        )
+    return _result(
+        cid, col, "drift_cardinality", "PASS",
+        f"cardinality={c_card} (ratio={ratio:.2f}×)",
+        f"baseline cardinality={b_card}",
+        "LOW", message=f"{col}: cardinality ratio={ratio:.2f}× within normal range",
+    )
+
+
+# Ordered dispatch list for the orchestrator.
+_DRIFT_CHECKS = (
+    check_drift_mean,
+    check_drift_variance,
+    check_drift_outliers,
+    check_drift_null_fraction,
+    check_drift_cardinality,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -584,22 +902,46 @@ def run_table_checks(
             stats = compute_column_stats(series)
             if stats:
                 table_stats[col] = stats
-                # Drift check if baseline exists
                 col_baseline = table_baseline.get(col)
                 if col_baseline:
-                    try:
-                        results.append(check_drift(
-                            table_name, col, stats, col_baseline,
-                        ))
-                    except Exception as exc:
-                        results.append(_result(
-                            f"{table_name}.{col}.drift", col, "drift", "ERROR",
-                            str(exc),
-                            f"baseline mean={col_baseline.get('mean')}",
-                            "MEDIUM", message=str(exc),
-                        ))
+                    for drift_fn in _DRIFT_CHECKS:
+                        check_type_name = drift_fn.__name__.replace("check_", "")
+                        try:
+                            r = drift_fn(table_name, col, stats, col_baseline)
+                            if r is not None:
+                                results.append(r)
+                        except Exception as exc:
+                            results.append(_result(
+                                f"{table_name}.{col}.{check_type_name}",
+                                col, check_type_name, "ERROR",
+                                str(exc),
+                                f"baseline mean={col_baseline.get('mean')}",
+                                "MEDIUM", message=str(exc),
+                            ))
 
     return results, table_stats
+
+
+def run_cross_table_checks(frames: dict[str, pd.DataFrame]) -> list[dict]:
+    """Run contract-level checks that compare values across tables."""
+    documents = frames.get("documents")
+    extracted_facts = frames.get("extracted_facts")
+
+    if documents is None or extracted_facts is None:
+        return []
+    if "doc_id" not in documents.columns or "doc_id" not in extracted_facts.columns:
+        return []
+
+    return [
+        check_referential_integrity(
+            "extracted_facts",
+            "doc_id",
+            extracted_facts["doc_id"],
+            "documents",
+            "doc_id",
+            documents["doc_id"],
+        )
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -727,6 +1069,8 @@ def main(argv: list[str] | None = None) -> int:
         if stats:
             baseline_key = f"{contract_id}/{tname}"
             new_baselines[baseline_key] = stats
+
+    all_results.extend(run_cross_table_checks(frames))
 
     # Tally
     passed = sum(1 for r in all_results if r["status"] == "PASS")
