@@ -1,6 +1,6 @@
-# Data Contract Enforcer
+﻿# Data Contract Enforcer
 
-> **TRP-1 · Week 7** — Bitol v3.0.0 contract generation and validation for multi-system data pipelines.
+> **TRP-1 Â· Week 7** â€” Bitol v3.0.0 contract generation and validation for multi-system data pipelines.
 
 Automatically profiles JSONL datasets, generates machine-readable Bitol data contracts, and enforces them with structural and statistical checks. Covers the full contract lifecycle: schema discovery, constraint inference, drift baselining, and CI-ready validation with exit codes.
 
@@ -25,20 +25,20 @@ Automatically profiles JSONL datasets, generates machine-readable Bitol data con
 
 Data contracts sit at the boundary between systems. This tool enforces them.
 
-The enforcer ingests raw JSONL data, profiles every column, and produces a Bitol v3.0.0 contract that encodes the invariants observed in that data — required fields, allowed enum values, UUID formats, datetime formats, numeric bounds, and statistical baselines for drift detection. A separate runner then validates new data against those contracts and produces a structured JSON report.
+The enforcer ingests raw JSONL data, profiles every column, and produces a Bitol v3.0.0 contract that encodes the invariants observed in that data â€” required fields, allowed enum values, UUID formats, datetime formats, numeric bounds, and statistical baselines for drift detection. A separate runner then validates new data against those contracts and produces a structured JSON report.
 
-**Current coverage:** 3 contracts active and validated.  3 sources are out of scope because no local data is available.
+**Current coverage:** 4 contracts active and validated. 1 source is out of scope because no local data is available.
 
 | System | Contract ID | Status | Checks |
 |---|---|---|---|
-| Week 3 — Document Refinery | `week3-document-refinery-extractions` | Active | 58 — all PASS |
-| Week 4 — Cartographer lineage | `week4-lineage-graph` | Active | 24 — all PASS |
-| Week 5 — Event Store | `week5-event-store` | Active | 43 — all PASS |
-| Week 1 — Intent Correlator | `week1-intent-correlator` | **Out of scope** — no source data | — |
-| Week 2 — Digital Courtroom | `week2-digital-courtroom` | **Out of scope** — no source data | — |
-| LangSmith traces | `langsmith-traces` | **Out of scope** — external system | — |
+| Week 3 â€” Document Refinery | `week3-document-refinery-extractions` | Active | 58 â€” all PASS |
+| Week 4 â€” Cartographer lineage | `week4-lineage-graph` | Active | 24 â€” all PASS |
+| Week 5 â€” Event Store | `week5-event-store` | Active | 43 â€” all PASS |
+| Week 1 - Intent Correlator | `week1-intent-correlator` | **Out of scope** - no source data | - |
+| Week 2 - Digital Courtroom | `week2-digital-courtroom` | Active | LangSmith trace tree export |
+| LangSmith traces | `langsmith-traces` | Active | 28 - all PASS |
 
-All out-of-scope sources are declared in `contract_registry/subscriptions.yaml` under `contracts` with `status: out_of_scope` and a reason.  No coverage is claimed for them.
+Week 1 is declared in `contract_registry/subscriptions.yaml` under `contracts` with `status: out_of_scope` and a reason. Week 2 is the LangSmith-producing source system for the exported trace tree that is covered in this repo.
 
 ---
 
@@ -119,11 +119,14 @@ data-contract-enforcer/
 |   |-- week3-document-refinery-extractions_dbt_schema.yml
 |   |-- week5-event-store.yaml
 |   +-- week5-event-store_dbt_schema.yml
+|   |-- langsmith-traces.yaml
+|   +-- langsmith-traces_dbt_schema.yml
 |
 |-- outputs/
 |   |-- week3/extractions.jsonl       # 38 docs, 17 MB
 |   |-- week4/lineage_snapshots.jsonl # 96 nodes, 80 edges
 |   +-- week5/events.jsonl            # 1,198 events
+|   +-- traces/automaton_auditor_week2_langsmith_tree.jsonl # 22 LangSmith trace nodes
 |
 |-- schema_snapshots/
 |   |-- baselines.json                # Drift detection baselines
@@ -173,7 +176,7 @@ echo $?
 
 ## Generator
 
-[contracts/generator.py](contracts/generator.py) — generates a Bitol v3.0.0 contract from a JSONL source file.
+[contracts/generator.py](contracts/generator.py) â€” generates a Bitol v3.0.0 contract from a JSONL source file.
 
 ### Usage
 
@@ -187,7 +190,7 @@ python contracts/generator.py
 
 ### 4-Stage Pipeline
 
-**Stage 1 — Load + Flatten**
+**Stage 1 â€” Load + Flatten**
 
 Reads JSONL records and normalises nested structures into flat DataFrames. For Week 3 extraction records, this explodes three levels:
 
@@ -199,16 +202,16 @@ Reads JSONL records and normalises nested structures into flat DataFrames. For W
 
 For flat structures (Week 5 events), all records map to the `documents` table as-is.
 
-**Stage 2 — Profile**
+**Stage 2 â€” Profile**
 
 For every column, computes:
-- `dtype` — pandas inferred type
-- `null_fraction` — fraction of null values
-- `cardinality` — number of unique non-null values
-- `sample_values` — up to 10 representative values
-- `min`, `max`, `mean`, `stddev`, `p25`, `p50`, `p75` — numeric columns only
+- `dtype` â€” pandas inferred type
+- `null_fraction` â€” fraction of null values
+- `cardinality` â€” number of unique non-null values
+- `sample_values` â€” up to 10 representative values
+- `min`, `max`, `mean`, `stddev`, `p25`, `p50`, `p75` â€” numeric columns only
 
-**Stage 3 — Translate**
+**Stage 3 â€” Translate**
 
 Profiles are converted to Bitol field clauses using five deterministic rules:
 
@@ -220,12 +223,12 @@ Profiles are converted to Bitol field clauses using five deterministic rules:
 | Date-time format | column name ends with `_at` | `format: date-time` |
 | Confidence bounds | `dtype == float` and `"confidence"` in name | `minimum: 0.0, maximum: 1.0` |
 
-**Stage 4 — Assemble + Write**
+**Stage 4 â€” Assemble + Write**
 
 Constructs the full Bitol contract dict and writes:
-1. `generated_contracts/{contract-id}.yaml` — primary contract
-2. `generated_contracts/{contract-id}_dbt_schema.yml` — dbt-compatible schema
-3. `schema_snapshots/{contract-id}/{timestamp}.yaml` — immutable versioned snapshot
+1. `generated_contracts/{contract-id}.yaml` â€” primary contract
+2. `generated_contracts/{contract-id}_dbt_schema.yml` â€” dbt-compatible schema
+3. `schema_snapshots/{contract-id}/{timestamp}.yaml` â€” immutable versioned snapshot
 
 ### Contract Format (Bitol v3.0.0)
 
@@ -234,7 +237,7 @@ kind: DataContract
 apiVersion: v3.0.0
 id: week3-document-refinery-extractions
 info:
-  title: Week 3 — Document Refinery Extractions
+  title: Week 3 â€” Document Refinery Extractions
   version: 1.0.0
 schema:
   tables:
@@ -266,7 +269,7 @@ lineage:
 
 ## Runner
 
-[contracts/runner.py](contracts/runner.py) — validates JSONL data against a Bitol contract.
+[contracts/runner.py](contracts/runner.py) â€” validates JSONL data against a Bitol contract.
 
 ### Usage
 
@@ -300,7 +303,7 @@ The gate checks the removed fields against `subscriptions[].breaking_fields` in 
 
 ### Check Execution Order
 
-Checks run in a fixed order — schema evolution first, structural next, statistical last:
+Checks run in a fixed order â€” schema evolution first, structural next, statistical last:
 
 | # | Check Type | Severity | Triggers |
 |---|---|---|---|
@@ -312,7 +315,7 @@ Checks run in a fixed order — schema evolution first, structural next, statist
 | 6 | `format_uuid` | CRITICAL | UUID field fails regex match |
 | 7 | `format_datetime` | CRITICAL | Date-time field fails ISO 8601 regex |
 | 8 | `range` | HIGH | Numeric field outside `[minimum, maximum]` |
-| 9 | `drift` | LOW | Z-score > 2σ (WARN) or > 3σ (FAIL) vs baseline |
+| 9 | `drift` | LOW | Z-score > 2Ïƒ (WARN) or > 3Ïƒ (FAIL) vs baseline |
 
 ### Drift Detection
 
@@ -362,7 +365,7 @@ Baselines update after each successful run.
 
 | Code | Meaning |
 |---|---|
-| `0` | All checks passed (or only WARNs — no FAILs or ERRORs) |
+| `0` | All checks passed (or only WARNs â€” no FAILs or ERRORs) |
 | `1` | At least one FAIL or ERROR |
 
 This makes the runner usable directly in CI pipelines: a failing contract check fails the build.
@@ -373,7 +376,7 @@ This makes the runner usable directly in CI pipelines: a failing contract check 
 
 ### `week3-document-refinery-extractions`
 
-Source: `outputs/week3/extractions.jsonl` — 38 PDFs extracted via Claude API batch pipeline.
+Source: `outputs/week3/extractions.jsonl` â€” 38 PDFs extracted via Claude API batch pipeline.
 
 **Schema:** 3 tables, 21 fields
 
@@ -389,7 +392,7 @@ Source: `outputs/week3/extractions.jsonl` — 38 PDFs extracted via Claude API b
 
 ### `week5-event-store`
 
-Source: `outputs/week5/events.jsonl` — 1,198 domain events migrated from PostgreSQL event store.
+Source: `outputs/week5/events.jsonl` â€” 1,198 domain events migrated from PostgreSQL event store.
 
 **Schema:** 10 fields (flat structure)
 
@@ -405,11 +408,25 @@ Source: `outputs/week5/events.jsonl` — 1,198 domain events migrated from Postg
 
 **Quality rules:** 4 (completeness, non-negative counts)
 
+### `langsmith-traces`
+
+Source: `outputs/traces/automaton_auditor_week2_langsmith_tree.jsonl` - 22 trace nodes exported from the Week 2 LangSmith run tree.
+
+**Schema:** 1 table, 13 fields
+
+| Table | Fields | Notable Constraints |
+|---|---|---|
+| `trace_nodes` | 13 | `run_id` required+uuid; `parent_run_id` uuid; `run_type` enum; `start_time` datetime; `trace_project_id` uuid |
+
+**Quality rules:** 14 (completeness + validity)
+
+**Lineage:** inputPort from LangSmith trace export
+
 ---
 
 ## Validation Results
 
-### Week 3 — First baseline run (`2026-04-01T16:22:16Z`)
+### Week 3 â€” First baseline run (`2026-04-01T16:22:16Z`)
 
 | Metric | Value |
 |---|---|
@@ -427,9 +444,9 @@ Source: `outputs/week5/events.jsonl` — 1,198 domain events migrated from Postg
 | `drift` | 7 | z=0.00 (same dataset, expected) |
 | `enum` | 2 | 6 extraction_model combinations all valid |
 | `format_datetime` | 1 | All extracted_at values ISO 8601 compliant |
-| `range` | 1 | confidence in [0.676, 1.0] — within [0.0, 1.0] bounds |
+| `range` | 1 | confidence in [0.676, 1.0] â€” within [0.0, 1.0] bounds |
 
-### Week 5 — First baseline run (`2026-04-01T15:24:08Z`)
+### Week 5 â€” First baseline run (`2026-04-01T15:24:08Z`)
 
 | Metric | Value |
 |---|---|
@@ -445,26 +462,47 @@ Source: `outputs/week5/events.jsonl` — 1,198 domain events migrated from Postg
 | `required` | 2 | event_id and aggregate_id always present |
 | `format_uuid` | 1 | All 1,198 event_ids valid UUID5s |
 | `format_datetime` | 1 | All occurred_at values ISO 8601 compliant |
-| `drift` | 2 | fact_count, entity_count (both 0 — flat events, expected) |
+| `drift` | 2 | fact_count, entity_count (both 0 â€” flat events, expected) |
+
+
+### LangSmith - First baseline run (`2026-04-02`)
+
+| Metric | Value |
+|---|---|
+| Total checks | 28 |
+| Passed | **28** |
+| Failed | 0 |
+| Warned | 0 |
+| Errored | 0 |
+
+| Check Type | Count | Notes |
+|---|---|---|
+| `required` | 5 | Core trace-node fields are always present |
+| `type` | 5 | Contract logical types match the flattened tree |
+| `format_uuid` | 3 | run_id, parent_run_id, trace_project_id preserve UUID identity |
+| `format_datetime` | 2 | start_time and end_time are ISO 8601 compliant |
+| `enum` | 1 | run_type is stable across the export |
+| `range` | 1 | depth remains non-negative |
+| `drift` | 1 | baseline created from the canonical trace tree |
 
 ---
 
 ## Data Sources
 
-### Week 3 — Document Refinery (`outputs/week3/extractions.jsonl`)
+### Week 3 â€” Document Refinery (`outputs/week3/extractions.jsonl`)
 
 38 PDF documents extracted via Claude API. Each record contains:
 - Top-level document metadata (source_path, extraction_model, processing_time_ms, token counts)
-- `extracted_facts[]` — array of extracted fact objects (text, confidence, page_ref)
-- `entities[]` — array of named entity objects (name, type, canonical_value)
+- `extracted_facts[]` â€” array of extracted fact objects (text, confidence, page_ref)
+- `entities[]` â€” array of named entity objects (name, type, canonical_value)
 
-> **Note:** Week 3 currently contains 38 documents (batch extraction ongoing for remaining PDFs). All 38 documents produce 44,784 extracted facts — the contract enforcement pipeline operates on the full fact-level dataset.
+> **Note:** Week 3 currently contains 38 documents (batch extraction ongoing for remaining PDFs). All 38 documents produce 44,784 extracted facts â€” the contract enforcement pipeline operates on the full fact-level dataset.
 
-### Week 4 — Cartographer (`outputs/week4/lineage_snapshots.jsonl`)
+### Week 4 â€” Cartographer (`outputs/week4/lineage_snapshots.jsonl`)
 
 Provenance lineage graph with 96 nodes and 80 edges. Nodes represent extracted facts, document entities, source PDFs, extraction runs, and model versions. Used for lineage injection into Week 3 contract.
 
-### Week 5 — Event Store (`outputs/week5/events.jsonl`)
+### Week 5 â€” Event Store (`outputs/week5/events.jsonl`)
 
 1,198 canonical domain events migrated from a PostgreSQL-backed event store via [scripts/migrate_week5.py](scripts/migrate_week5.py). Event fields:
 
@@ -492,20 +530,28 @@ Provenance lineage graph with 96 nodes and 80 edges. Nodes represent extracted f
 
 ---
 
+
+### LangSmith - Trace Tree Export (`outputs/traces/automaton_auditor_week2_langsmith_tree.jsonl`)
+
+22 trace nodes exported from the Week 2 auditor run tree.
+
+Each record contains:
+- `id` and `parent_run_id` to preserve the raw run-tree structure
+- `depth`, `name`, `run_type`, `start_time`, `end_time`
+- `inputs`, `outputs`, `tags`, `error`, `app_path`, `trace_project`
+
+**Coverage:** 1 root run, 15 direct children, 22 total nodes.
+
 ## Out-of-Scope Sources
 
-The following systems are declared in the registry catalog but have no local source data.
-No contract validation is performed for them and no coverage is claimed.
+The following system is declared in the registry catalog but has no local source data.
+No contract validation is performed for it and no coverage is claimed.
 
 | Contract ID | Reason |
 |---|---|
 | `week1-intent-correlator` | Source data not available in this repository |
-| `week2-digital-courtroom` | Source data not available in this repository |
-| `langsmith-traces` | External system; no local source data available |
 
-If source data becomes available, add the JSONL to `outputs/{week}/`, run `contracts/generator.py`, and update the registry entry from `out_of_scope` to `active`.
-
----
+If Week 1 source data becomes available, add the JSONL to `outputs/{week}/`, run `contracts/generator.py`, and update the registry entry from `out_of_scope` to `active`.
 
 ## Extending the System
 
@@ -552,3 +598,4 @@ Each generator run appends a new timestamped snapshot to `schema_snapshots/{cont
 ---
 
 *Validation data current as of 2026-04-01. See [thursday_report.md](thursday_report.md) for full run analysis.*
+

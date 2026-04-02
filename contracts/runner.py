@@ -49,6 +49,7 @@ try:
         flatten_facts,
         flatten_lineage_edges,
         flatten_lineage_nodes,
+        flatten_trace_nodes,
         load_jsonl,
     )
     from contracts.attributor import (
@@ -69,6 +70,7 @@ except ModuleNotFoundError:
         flatten_facts,
         flatten_lineage_edges,
         flatten_lineage_nodes,
+        flatten_trace_nodes,
         load_jsonl,
     )
     from contracts.attributor import (
@@ -1042,6 +1044,7 @@ TABLE_FLATTENERS = {
     "event_metadata": flatten_event_metadata,
     "lineage_nodes": flatten_lineage_nodes,
     "lineage_edges": flatten_lineage_edges,
+    "trace_nodes": flatten_trace_nodes,
 }
 
 

@@ -49,6 +49,37 @@ def load_jsonl(path: str) -> list[dict]:
     return records
 
 
+def _json_stringify(value: Any) -> str | None:
+    """Convert nested JSON-like payloads into stable JSON strings."""
+    if value is None:
+        return None
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def flatten_trace_nodes(records: list[dict]) -> pd.DataFrame:
+    """Flatten LangSmith trace-tree nodes into one row per run node."""
+    rows = []
+    for r in records:
+        rows.append(
+            {
+                "run_id": r.get("id"),
+                "parent_run_id": r.get("parent_run_id") or None,
+                "depth": r.get("depth"),
+                "name": r.get("name"),
+                "run_type": r.get("run_type"),
+                "start_time": r.get("start_time"),
+                "end_time": r.get("end_time"),
+                "inputs_json": _json_stringify(r.get("inputs")),
+                "outputs_json": _json_stringify(r.get("outputs")),
+                "error": r.get("error"),
+                "tags_json": _json_stringify(r.get("tags")),
+                "app_path": r.get("app_path"),
+                "trace_project_id": r.get("trace_project"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def flatten_documents(records: list[dict]) -> pd.DataFrame:
     """Top-level document fields -- one row per source document."""
     rows = []
@@ -198,8 +229,16 @@ def profile_column(series: pd.Series) -> dict:
     null_fraction = round(null_count / total, 4) if total > 0 else 0.0
 
     non_null = series.dropna()
-    cardinality = int(non_null.nunique())
-    sample_values = [_to_python(v) for v in non_null.unique()[:10].tolist()]
+    if non_null.empty:
+        normalized = non_null
+    else:
+        normalized = non_null.map(
+            lambda v: _json_stringify(v)
+            if isinstance(v, (dict, list, tuple, set))
+            else _to_python(v)
+        )
+    cardinality = int(normalized.nunique()) if not normalized.empty else 0
+    sample_values = [str(v) for v in normalized.unique()[:10].tolist()]
 
     profile: dict[str, Any] = {
         "name": series.name,
@@ -268,7 +307,13 @@ def profile_to_field_clause(profile: dict) -> dict:
         field["maximum"] = 1.0
 
     # Rule 3 -- enum (low-cardinality categoricals)
-    if cardinality <= 10 and dtype == "object" and sample_values:
+    if (
+        cardinality <= 10
+        and dtype == "object"
+        and sample_values
+        and not name.endswith("_id")
+        and not name.endswith("_json")
+    ):
         field["enum"] = [str(v) for v in sample_values if v is not None]
 
     # Rule 4 -- UUID format
@@ -338,7 +383,13 @@ def build_quality_rules(table_name: str, profiles: list[dict], total_rows: int =
             )
 
         # Enum / allowed values for low-cardinality categoricals
-        if p["cardinality"] <= 10 and p["dtype"] == "object" and p["sample_values"]:
+        if (
+            p["cardinality"] <= 10
+            and p["dtype"] == "object"
+            and p["sample_values"]
+            and not col.endswith("_id")
+            and not col.endswith("_json")
+        ):
             quoted = ", ".join(f"'{v}'" for v in p["sample_values"] if v)
             rules.append(
                 {
@@ -485,6 +536,20 @@ def load_lineage(path: str | None) -> list[dict]:
     return records[:5]
 
 
+def source_description_for_contract(contract_id: str) -> str:
+    """Return a readable source description for the contract being generated."""
+    lowered = contract_id.lower()
+    if "week3" in lowered:
+        return "Week 3 PDF extraction export"
+    if "week4" in lowered:
+        return "Week 4 lineage snapshot export"
+    if "week5" in lowered:
+        return "Week 5 event log export"
+    if "langsmith" in lowered:
+        return "LangSmith trace node export"
+    return "Profiled JSONL source export"
+
+
 def build_contract(
     contract_id: str,
     tables: dict[str, list[dict]],
@@ -495,6 +560,8 @@ def build_contract(
     registry: dict[str, Any] | None = None,
 ) -> dict:
     now = datetime.now(timezone.utc).isoformat()
+    source_description = source_description_for_contract(contract_id)
+    source_port_type = "trace_export" if "langsmith" in contract_id.lower() else "batch_extraction"
 
     # Schema section
     schema_tables = []
@@ -518,9 +585,9 @@ def build_contract(
     # Lineage section
     input_ports: list[dict] = [
         {
-            "type": "batch_extraction",
+            "type": source_port_type,
             "uri": source_path,
-            "description": "Week 3 PDF batch extraction pipeline",
+            "description": source_description,
             "format": "jsonl",
             "recordCount": record_count,
             "capturedAt": now,
@@ -573,7 +640,7 @@ def build_contract(
                 "type": "local",
                 "path": source_path,
                 "format": "jsonl",
-                "description": "Source JSONL from Week 3 batch extraction",
+                "description": source_description,
             }
         },
         "schema": {
@@ -683,40 +750,67 @@ def main(argv: list[str] | None = None) -> int:
     records = load_jsonl(args.source)
     print(f"  Loaded {len(records)} source documents")
 
-    df_docs = flatten_documents(records)
-    df_facts = flatten_facts(records)
-    df_entities = flatten_entities(records)
+    if "langsmith" in args.contract_id.lower():
+        df_trace = flatten_trace_nodes(records)
+        print(
+            f"  Flattened -> "
+            f"trace_nodes={len(df_trace)}rx{len(df_trace.columns)}c"
+        )
 
-    print(
-        f"  Flattened -> "
-        f"documents={len(df_docs)}rx{len(df_docs.columns)}c  "
-        f"facts={len(df_facts)}rx{len(df_facts.columns)}c  "
-        f"entities={len(df_entities)}rx{len(df_entities.columns)}c"
-    )
+        # -- Stage 2 ----------------------------------------------------------
+        print("[generator] Stage 2 -- Profiling columns ...")
+        profiles_trace = profile_dataframe(df_trace)
+        print(f"  {len(profiles_trace)} fields profiled across 1 table")
 
-    # -- Stage 2 --------------------------------------------------------------
-    print("[generator] Stage 2 -- Profiling columns ...")
-    profiles_docs = profile_dataframe(df_docs)
-    profiles_facts = profile_dataframe(df_facts)
-    profiles_entities = profile_dataframe(df_entities)
+        # -- Stage 3 ----------------------------------------------------------
+        print("[generator] Stage 3 -- Translating profiles to Bitol clauses ...")
+        tables = {"trace_nodes": profiles_trace}
+        clause_count = sum(len(p) for p in tables.values())
+        rule_preview = sum(len(build_quality_rules(t, p)) for t, p in tables.items())
+        print(f"  {clause_count} schema clauses, ~{rule_preview} quality rules")
 
-    total_fields = len(profiles_docs) + len(profiles_facts) + len(profiles_entities)
-    print(f"  {total_fields} fields profiled across 3 tables")
+        row_counts = {"trace_nodes": len(df_trace)}
+    else:
+        df_docs = flatten_documents(records)
+        df_facts = flatten_facts(records)
+        df_entities = flatten_entities(records)
 
-    # -- Stage 3 --------------------------------------------------------------
-    print("[generator] Stage 3 -- Translating profiles to Bitol clauses ...")
-    tables: dict[str, list[dict]] = {
-        "documents": profiles_docs,
-        "extracted_facts": profiles_facts,
-        "entities": profiles_entities,
-    }
+        print(
+            f"  Flattened -> "
+            f"documents={len(df_docs)}rx{len(df_docs.columns)}c  "
+            f"facts={len(df_facts)}rx{len(df_facts.columns)}c  "
+            f"entities={len(df_entities)}rx{len(df_entities.columns)}c"
+        )
 
-    # Count how many clauses will be generated for a progress indicator
-    clause_count = sum(len(p) for p in tables.values())
-    rule_preview = sum(
-        len(build_quality_rules(t, p)) for t, p in tables.items()
-    )
-    print(f"  {clause_count} schema clauses, ~{rule_preview} quality rules")
+        # -- Stage 2 ----------------------------------------------------------
+        print("[generator] Stage 2 -- Profiling columns ...")
+        profiles_docs = profile_dataframe(df_docs)
+        profiles_facts = profile_dataframe(df_facts)
+        profiles_entities = profile_dataframe(df_entities)
+
+        total_fields = len(profiles_docs) + len(profiles_facts) + len(profiles_entities)
+        print(f"  {total_fields} fields profiled across 3 tables")
+
+        # -- Stage 3 ----------------------------------------------------------
+        print("[generator] Stage 3 -- Translating profiles to Bitol clauses ...")
+        tables = {
+            "documents": profiles_docs,
+            "extracted_facts": profiles_facts,
+            "entities": profiles_entities,
+        }
+
+        # Count how many clauses will be generated for a progress indicator
+        clause_count = sum(len(p) for p in tables.values())
+        rule_preview = sum(
+            len(build_quality_rules(t, p)) for t, p in tables.items()
+        )
+        print(f"  {clause_count} schema clauses, ~{rule_preview} quality rules")
+
+        row_counts = {
+            "documents": len(df_docs),
+            "extracted_facts": len(df_facts),
+            "entities": len(df_entities),
+        }
 
     # -- Stage 4 --------------------------------------------------------------
     print("[generator] Stage 4 -- Injecting registry + lineage + writing outputs ...")
@@ -727,12 +821,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Loaded {len(lineage_records)} lineage records from {args.lineage}")
     else:
         print("  No lineage records (will use source as sole input port)")
-
-    row_counts = {
-        "documents": len(df_docs),
-        "extracted_facts": len(df_facts),
-        "entities": len(df_entities),
-    }
 
     contract = build_contract(
         contract_id=args.contract_id,

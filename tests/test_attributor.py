@@ -1,4 +1,4 @@
-import unittest
+﻿import unittest
 from pathlib import Path
 
 from contracts.attributor import attribute_violation, get_contract_status, load_registry
@@ -91,7 +91,7 @@ class AttributeViolationTest(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_contamination_depth_traverses_registry_graph(self) -> None:
-        # Week 3 → Week 4 (depth 1) → Week 7 (depth 2)
+        # Week 3 â†’ Week 4 (depth 1) â†’ Week 7 (depth 2)
         result = self._attributed()
         self.assertEqual(2, result["contamination_depth"])
 
@@ -160,7 +160,7 @@ class LoadRegistryNewSchemaTest(unittest.TestCase):
         self.assertIn("week4-lineage-graph", ids)
         self.assertIn("week5-event-store", ids)
 
-    def test_out_of_scope_contracts_in_catalog(self) -> None:
+    def test_missing_source_contracts_in_catalog(self) -> None:
         ids = {c["id"] for c in self._registry["contracts"]}
         self.assertIn("week1-intent-correlator", ids)
         self.assertIn("week2-digital-courtroom", ids)
@@ -170,11 +170,11 @@ class LoadRegistryNewSchemaTest(unittest.TestCase):
         self.assertEqual("active", get_contract_status("week3-document-refinery-extractions", self._registry))
         self.assertEqual("active", get_contract_status("week4-lineage-graph", self._registry))
         self.assertEqual("active", get_contract_status("week5-event-store", self._registry))
+        self.assertEqual("active", get_contract_status("langsmith-traces", self._registry))
 
     def test_out_of_scope_status_for_missing_sources(self) -> None:
         self.assertEqual("out_of_scope", get_contract_status("week1-intent-correlator", self._registry))
         self.assertEqual("out_of_scope", get_contract_status("week2-digital-courtroom", self._registry))
-        self.assertEqual("out_of_scope", get_contract_status("langsmith-traces", self._registry))
 
     def test_unknown_status_for_nonexistent_contract(self) -> None:
         self.assertEqual("unknown", get_contract_status("nonexistent-contract", self._registry))
@@ -190,7 +190,10 @@ class LoadRegistryNewSchemaTest(unittest.TestCase):
         self.assertIn("week3-document-refinery-extractions", source_contracts)
         self.assertIn("week4-lineage-graph", source_contracts)
         self.assertIn("week5-event-store", source_contracts)
+        self.assertIn("langsmith-traces", source_contracts)
 
 
 if __name__ == "__main__":
     unittest.main()
+
+

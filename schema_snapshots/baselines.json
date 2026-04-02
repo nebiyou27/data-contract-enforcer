@@ -98,5 +98,16 @@
       "null_fraction": 0.0,
       "cardinality": 3
     }
+  },
+  "langsmith-traces/trace_nodes": {
+    "depth": {
+      "mean": 1.227273,
+      "stddev": 0.528413,
+      "min": 0.0,
+      "max": 2.0,
+      "count": 22,
+      "null_fraction": 0.0,
+      "cardinality": 3
+    }
   }
 }

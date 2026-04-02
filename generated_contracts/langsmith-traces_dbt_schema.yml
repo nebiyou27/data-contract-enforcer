@@ -1,0 +1,43 @@
+version: 2
+models:
+- name: trace_nodes
+  description: Model for trace_nodes -- derived from contract langsmith-traces
+  columns:
+  - name: run_id
+    tests:
+    - not_null
+    - unique
+  - name: parent_run_id
+    tests:
+    - unique
+  - name: depth
+    tests:
+    - not_null
+    description: Numeric. range=[0.0, 2.0], mean=1.227273, stddev=0.528413
+  - name: name
+    tests:
+    - not_null
+  - name: run_type
+    tests:
+    - not_null
+  - name: start_time
+    tests:
+    - not_null
+  - name: end_time
+    tests:
+    - not_null
+  - name: inputs_json
+    tests:
+    - not_null
+  - name: outputs_json
+  - name: error
+  - name: tags_json
+    tests:
+    - not_null
+  - name: app_path
+    tests:
+    - not_null
+  - name: trace_project_id
+    tests:
+    - not_null
+    - unique

@@ -1,15 +1,15 @@
-registry:
+﻿registry:
   version: "1.0"
   schema_evolution_policy:
     gate: producer-side
     action_on_breaking_change: block
     registry_update_required: true
 
-# ──────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # CONTRACT CATALOG
 # Primary source of truth for which contracts are active and which are
 # out-of-scope due to missing source data.
-# ──────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 contracts:
   - id: week3-document-refinery-extractions
     producer: week3-document-refinery
@@ -38,15 +38,15 @@ contracts:
 
   - id: langsmith-traces
     producer: langsmith
-    status: out_of_scope
-    reason: External system; no local source data available.
+    status: active
+    data_path: outputs/traces/automaton_auditor_week2_langsmith_tree.jsonl
 
-# ──────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # SUBSCRIPTIONS
 # Declares which downstream systems depend on each contract and which fields
-# are breaking — i.e., a change to these fields must be registered here before
+# are breaking â€” i.e., a change to these fields must be registered here before
 # the producer is allowed to ship (enforced by the producer-side evolution gate).
-# ──────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 subscriptions:
   - source: Week 3
     source_contract: week3-document-refinery-extractions
@@ -75,3 +75,12 @@ subscriptions:
         reason: Week 7 readers depend on event ordering; changing this breaks replay and audit semantics.
       - field: event_metadata.global_position
         reason: Week 7 blast-radius calculations rely on a stable global ordering for contamination depth.
+  - source: LangSmith
+    source_contract: langsmith-traces
+    target: Week 7
+    target_contract: week7-trust-boundary
+    breaking_fields:
+      - field: trace_nodes.run_id
+        reason: Week 7 trace attribution depends on stable run identifiers across the tree.
+      - field: trace_nodes.parent_run_id
+        reason: Week 7 needs preserved parent-child span relationships to reconstruct the raw trace tree.
