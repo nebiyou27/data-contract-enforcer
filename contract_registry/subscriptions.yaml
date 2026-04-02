@@ -1,3 +1,52 @@
+registry:
+  version: "1.0"
+  schema_evolution_policy:
+    gate: producer-side
+    action_on_breaking_change: block
+    registry_update_required: true
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CONTRACT CATALOG
+# Primary source of truth for which contracts are active and which are
+# out-of-scope due to missing source data.
+# ──────────────────────────────────────────────────────────────────────────────
+contracts:
+  - id: week3-document-refinery-extractions
+    producer: week3-document-refinery
+    status: active
+    data_path: outputs/week3/extractions.jsonl
+
+  - id: week4-lineage-graph
+    producer: week4-cartographer
+    status: active
+    data_path: outputs/week4/lineage_snapshots.jsonl
+
+  - id: week5-event-store
+    producer: week5-event-capture
+    status: active
+    data_path: outputs/week5/events.jsonl
+
+  - id: week1-intent-correlator
+    producer: week1-intent-correlator
+    status: out_of_scope
+    reason: Source data not available in this repository.
+
+  - id: week2-digital-courtroom
+    producer: week2-digital-courtroom
+    status: out_of_scope
+    reason: Source data not available in this repository.
+
+  - id: langsmith-traces
+    producer: langsmith
+    status: out_of_scope
+    reason: External system; no local source data available.
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SUBSCRIPTIONS
+# Declares which downstream systems depend on each contract and which fields
+# are breaking — i.e., a change to these fields must be registered here before
+# the producer is allowed to ship (enforced by the producer-side evolution gate).
+# ──────────────────────────────────────────────────────────────────────────────
 subscriptions:
   - source: Week 3
     source_contract: week3-document-refinery-extractions
@@ -26,12 +75,3 @@ subscriptions:
         reason: Week 7 readers depend on event ordering; changing this breaks replay and audit semantics.
       - field: event_metadata.global_position
         reason: Week 7 blast-radius calculations rely on a stable global ordering for contamination depth.
-  - source: LangSmith
-    source_contract: langsmith-traces
-    target: Week 7
-    target_contract: week7-trust-boundary
-    breaking_fields:
-      - field: traces.trace_id
-        reason: Week 7 trace attribution needs stable trace identifiers to connect producer and subscriber boundaries.
-      - field: spans.parent_id
-        reason: Week 7 trust-boundary reasoning depends on preserved parent-child span relationships.

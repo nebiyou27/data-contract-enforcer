@@ -1,6 +1,7 @@
 import unittest
+from pathlib import Path
 
-from contracts.attributor import attribute_violation, load_registry
+from contracts.attributor import attribute_violation, get_contract_status, load_registry
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +138,58 @@ class AttributeViolationTest(unittest.TestCase):
         result = attribute_violation(VIOLATION_STUB, "nonexistent-contract", REGISTRY)
         self.assertEqual([], result["direct_subscribers"])
         self.assertEqual(0, result["contamination_depth"])
+
+
+class LoadRegistryNewSchemaTest(unittest.TestCase):
+    """Verify load_registry() correctly surfaces the new catalog and policy fields."""
+
+    _REGISTRY_PATH = Path("contract_registry") / "subscriptions.yaml"
+
+    def setUp(self) -> None:
+        if not self._REGISTRY_PATH.exists():
+            self.skipTest("subscriptions.yaml not found; skipping file-based registry tests")
+        self._registry = load_registry(self._REGISTRY_PATH)
+
+    def test_contracts_catalog_present(self) -> None:
+        self.assertIn("contracts", self._registry)
+        self.assertIsInstance(self._registry["contracts"], list)
+
+    def test_active_contracts_in_catalog(self) -> None:
+        ids = {c["id"] for c in self._registry["contracts"]}
+        self.assertIn("week3-document-refinery-extractions", ids)
+        self.assertIn("week4-lineage-graph", ids)
+        self.assertIn("week5-event-store", ids)
+
+    def test_out_of_scope_contracts_in_catalog(self) -> None:
+        ids = {c["id"] for c in self._registry["contracts"]}
+        self.assertIn("week1-intent-correlator", ids)
+        self.assertIn("week2-digital-courtroom", ids)
+        self.assertIn("langsmith-traces", ids)
+
+    def test_active_status_for_live_contracts(self) -> None:
+        self.assertEqual("active", get_contract_status("week3-document-refinery-extractions", self._registry))
+        self.assertEqual("active", get_contract_status("week4-lineage-graph", self._registry))
+        self.assertEqual("active", get_contract_status("week5-event-store", self._registry))
+
+    def test_out_of_scope_status_for_missing_sources(self) -> None:
+        self.assertEqual("out_of_scope", get_contract_status("week1-intent-correlator", self._registry))
+        self.assertEqual("out_of_scope", get_contract_status("week2-digital-courtroom", self._registry))
+        self.assertEqual("out_of_scope", get_contract_status("langsmith-traces", self._registry))
+
+    def test_unknown_status_for_nonexistent_contract(self) -> None:
+        self.assertEqual("unknown", get_contract_status("nonexistent-contract", self._registry))
+
+    def test_schema_evolution_policy_present(self) -> None:
+        policy = self._registry.get("schema_evolution_policy", {})
+        self.assertEqual("producer-side", policy.get("gate"))
+        self.assertEqual("block", policy.get("action_on_breaking_change"))
+
+    def test_subscriptions_still_intact(self) -> None:
+        subs = self._registry["subscriptions"]
+        source_contracts = {s["source_contract"] for s in subs}
+        self.assertIn("week3-document-refinery-extractions", source_contracts)
+        self.assertIn("week4-lineage-graph", source_contracts)
+        self.assertIn("week5-event-store", source_contracts)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,12 @@
 """
 contracts/attributor.py -- registry-first blast radius attribution helpers.
 
-The subscription registry is the primary source of truth for direct subscribers.
+The subscription registry (contract_registry/subscriptions.yaml) is the
+primary source of truth for:
+  - which contracts are active vs out-of-scope (contracts catalog)
+  - which downstream systems are direct subscribers (subscriptions)
+  - which fields are breaking for each subscription
+
 Lineage data is used only as enrichment when available.
 """
 
@@ -47,9 +52,23 @@ def load_registry(path: str | Path | None = None) -> dict[str, Any]:
             }
         )
 
+    # Contracts catalog — lists every contract with status (active / out_of_scope)
+    contracts: list[dict[str, Any]] = []
+    if isinstance(raw, dict):
+        for entry in raw.get("contracts") or []:
+            if isinstance(entry, dict):
+                contracts.append(entry)
+
+    # Schema-evolution policy declared in the registry header
+    policy: dict[str, Any] = {}
+    if isinstance(raw, dict):
+        policy = raw.get("registry", {}).get("schema_evolution_policy") or {}
+
     return {
         "path": str(registry_path),
         "subscriptions": normalized,
+        "contracts": contracts,
+        "schema_evolution_policy": policy,
     }
 
 
@@ -78,6 +97,14 @@ def load_lineage_graph(path: str | Path | None) -> dict[str, Any]:
         "nodes": nodes,
         "edges": edges,
     }
+
+
+def get_contract_status(contract_id: str, registry: dict[str, Any]) -> str:
+    """Return the catalog status for a contract_id ('active', 'out_of_scope', or 'unknown')."""
+    for entry in registry.get("contracts", []):
+        if entry.get("id") == contract_id:
+            return entry.get("status", "unknown")
+    return "unknown"
 
 
 def contract_source_label(contract_id: str) -> str:

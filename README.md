@@ -27,15 +27,18 @@ Data contracts sit at the boundary between systems. This tool enforces them.
 
 The enforcer ingests raw JSONL data, profiles every column, and produces a Bitol v3.0.0 contract that encodes the invariants observed in that data — required fields, allowed enum values, UUID formats, datetime formats, numeric bounds, and statistical baselines for drift detection. A separate runner then validates new data against those contracts and produces a structured JSON report.
 
-**Current coverage:** 3 contracts written and validated, 2 planned.
+**Current coverage:** 3 contracts active and validated.  3 sources are out of scope because no local data is available.
 
 | System | Contract ID | Status | Checks |
 |---|---|---|---|
 | Week 3 — Document Refinery | `week3-document-refinery-extractions` | Active | 58 — all PASS |
 | Week 4 — Cartographer lineage | `week4-lineage-graph` | Active | 24 — all PASS |
 | Week 5 — Event Store | `week5-event-store` | Active | 43 — all PASS |
-| Week 2 — Digital Courtroom | _(planned)_ | Planned | — |
-| LangSmith traces | _(planned)_ | Planned | — |
+| Week 1 — Intent Correlator | `week1-intent-correlator` | **Out of scope** — no source data | — |
+| Week 2 — Digital Courtroom | `week2-digital-courtroom` | **Out of scope** — no source data | — |
+| LangSmith traces | `langsmith-traces` | **Out of scope** — external system | — |
+
+All out-of-scope sources are declared in `contract_registry/subscriptions.yaml` under `contracts` with `status: out_of_scope` and a reason.  No coverage is claimed for them.
 
 ---
 
@@ -60,15 +63,31 @@ JSONL Source Data
                               {contract_id}/{timestamp}.yaml
       |
       v
++-------------------------------------------+
+|   contract_registry/subscriptions.yaml    |
+|                                           |
+|  registry:   schema_evolution_policy      |
+|  contracts:  catalog (active + OOS)       |
+|  subscriptions: who depends on what,      |
+|                 which fields are breaking |
++-------------------------------------------+
+      |                         |
+      | (pre-deploy gate)       | (blast-radius attribution)
+      v                         v
++---------------------+   +---------------------+
+|   contracts/        |   |   contracts/        |
+|   runner.py         |   |   attributor.py     |
+|                     |   |                     |
+|  Evolution gate     |   |  Registry-first     |
+|  Structural checks  |   |  blast-radius       |
+|  Statistical drift  |   |  Lineage enrichment |
+|  Exit code: 0/1     |   +---------------------+
 +---------------------+
-|   contracts/        |
-|   runner.py         |
-|                     |
-|  Structural checks  |      validation_reports/
-|  Statistical drift  | -->  week3_baseline.json
-|  Baseline mgmt      |      week5_baseline.json
-|  Exit code: 0/1     |
-+---------------------+
+      |
+      v
+  validation_reports/
+  week3_baseline.json
+  week5_baseline.json
 ```
 
 ### Pipeline data flow
@@ -92,7 +111,8 @@ data-contract-enforcer/
 |-- contracts/
 |   |-- __init__.py
 |   |-- generator.py          # 4-stage contract generator
-|   +-- runner.py             # Contract validation runner
+|   |-- runner.py             # Contract validation runner + producer-side evolution gate
+|   +-- attributor.py         # Registry-first blast-radius attribution
 |
 |-- generated_contracts/
 |   |-- week3-document-refinery-extractions.yaml
@@ -256,6 +276,27 @@ python contracts/runner.py
   --data      <path>    Path to data JSONL (required)
   --output    <path>    Output path for JSON report (required)
 ```
+
+### Producer-Side Evolution Gate
+
+`check_producer_evolution_gate()` is a pre-deploy function that blocks a schema change from shipping if it removes a field declared as breaking in the registry.
+
+```python
+from contracts.runner import check_producer_evolution_gate
+from contracts.attributor import load_registry
+
+registry = load_registry()
+result = check_producer_evolution_gate(
+    proposed_fields=["doc_id", "fact_count"],      # new schema (confidence removed)
+    current_fields=["doc_id", "fact_count", "confidence"],
+    contract_id="week3-document-refinery-extractions",
+    registry=registry,
+)
+# result["action"] == "BLOCK"
+# result["breaking_fields_affected"] == [{"field": "extracted_facts.confidence", ...}]
+```
+
+The gate checks the removed fields against `subscriptions[].breaking_fields` in the registry.  If any breaking field would be removed, the result is `BLOCK` and the reason names the field and the downstream subscriber.  The deploy proceeds only if all registered breaking fields are preserved.
 
 ### Check Execution Order
 
@@ -451,6 +492,21 @@ Provenance lineage graph with 96 nodes and 80 edges. Nodes represent extracted f
 
 ---
 
+## Out-of-Scope Sources
+
+The following systems are declared in the registry catalog but have no local source data.
+No contract validation is performed for them and no coverage is claimed.
+
+| Contract ID | Reason |
+|---|---|
+| `week1-intent-correlator` | Source data not available in this repository |
+| `week2-digital-courtroom` | Source data not available in this repository |
+| `langsmith-traces` | External system; no local source data available |
+
+If source data becomes available, add the JSONL to `outputs/{week}/`, run `contracts/generator.py`, and update the registry entry from `out_of_scope` to `active`.
+
+---
+
 ## Extending the System
 
 ### Adding a new contract
@@ -458,26 +514,21 @@ Provenance lineage graph with 96 nodes and 80 edges. Nodes represent extracted f
 ```bash
 # 1. Prepare your JSONL at outputs/{week}/data.jsonl
 
-# 2. Generate the contract
+# 2. Update the registry: change the contract entry from out_of_scope to active
+#    (or add a new entry) in contract_registry/subscriptions.yaml
+
+# 3. Generate the contract
 python contracts/generator.py \
   --source outputs/week2/verdict_records.jsonl \
   --contract-id week2-digital-courtroom \
   --output generated_contracts/
 
-# 3. Validate
+# 4. Validate
 python contracts/runner.py \
   --contract generated_contracts/week2-digital-courtroom.yaml \
   --data outputs/week2/verdict_records.jsonl \
   --output validation_reports/week2_baseline.json
 ```
-
-### Planned contracts
-
-| Contract ID | Source | Interface |
-|---|---|---|
-| `week2-digital-courtroom` | `verdict_records.jsonl` | Week 2 -> Week 7 LLM output validation |
-| `langsmith-traces` | LangSmith trace schema | LangSmith -> Week 7 trace enforcement |
-| `week7-trust-boundary` | `contract_registry/subscriptions.yaml` | Registry-first blast-radius governance |
 
 ### Rerunning on expanded datasets
 

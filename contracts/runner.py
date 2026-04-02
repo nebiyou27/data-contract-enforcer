@@ -54,6 +54,7 @@ try:
     from contracts.attributor import (
         DEFAULT_REGISTRY_PATH,
         attribute_violation,
+        contract_source_label,
         load_lineage_graph,
         load_registry,
     )
@@ -73,6 +74,7 @@ except ModuleNotFoundError:
     from contracts.attributor import (
         DEFAULT_REGISTRY_PATH,
         attribute_violation,
+        contract_source_label,
         load_lineage_graph,
         load_registry,
     )
@@ -204,6 +206,89 @@ def summarize_schema_evolution(results: list[dict]) -> dict:
     return {
         "missing_columns": missing_columns,
         "new_columns": new_columns,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Producer-side schema-evolution gate
+# ---------------------------------------------------------------------------
+
+
+def check_producer_evolution_gate(
+    proposed_fields: list[str],
+    current_fields: list[str],
+    contract_id: str,
+    registry: dict,
+) -> dict:
+    """Producer-side gate: block a deploy when a registered breaking field is removed.
+
+    This is a pre-deploy check.  The producer runs it before shipping a schema
+    change.  If the proposed schema removes a field that downstream subscribers
+    have declared as breaking in the registry, the deploy is blocked.
+
+    Args:
+        proposed_fields: Field names (bare column names) in the candidate schema.
+        current_fields:  Field names in the currently published contract.
+        contract_id:     The contract being evolved (e.g. 'week3-document-refinery-extractions').
+        registry:        Loaded registry dict (from load_registry()).
+
+    Returns:
+        dict with keys:
+          action                   — "BLOCK" or "PASS"
+          breaking_fields_affected — list of dicts with field/reason/subscriber
+          reason                   — human-readable explanation
+    """
+    removed = set(current_fields) - set(proposed_fields)
+    if not removed:
+        return {
+            "action": "PASS",
+            "breaking_fields_affected": [],
+            "reason": "No fields removed; schema is additive or unchanged.",
+        }
+
+    source_label = contract_source_label(contract_id)
+    subscriptions = registry.get("subscriptions", [])
+    direct_subs = [
+        sub for sub in subscriptions
+        if sub.get("source") == source_label or sub.get("source_contract") == contract_id
+    ]
+
+    breaking_fields_affected: list[dict] = []
+    for sub in direct_subs:
+        for bf in sub.get("breaking_fields", []):
+            registered = bf.get("field", "")
+            # Registry stores "table.column"; match on the column part or the full path
+            col_part = registered.split(".")[-1] if "." in registered else registered
+            if col_part in removed or registered in removed:
+                breaking_fields_affected.append(
+                    {
+                        "field": registered,
+                        "reason": bf.get("reason", ""),
+                        "subscriber": sub.get("target", ""),
+                        "subscriber_contract": sub.get("target_contract", ""),
+                    }
+                )
+
+    if breaking_fields_affected:
+        affected_names = sorted({bf["field"] for bf in breaking_fields_affected})
+        return {
+            "action": "BLOCK",
+            "breaking_fields_affected": breaking_fields_affected,
+            "reason": (
+                f"Removing {sorted(removed)} from '{contract_id}' would break "
+                f"{len(breaking_fields_affected)} registered subscription(s) "
+                f"(fields: {affected_names}). "
+                "Update contract_registry/subscriptions.yaml with a migration plan before shipping."
+            ),
+        }
+
+    return {
+        "action": "PASS",
+        "breaking_fields_affected": [],
+        "reason": (
+            f"Removed fields {sorted(removed)} are not registered as breaking "
+            "for any downstream subscriber."
+        ),
     }
 
 
