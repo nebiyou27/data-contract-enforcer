@@ -122,7 +122,7 @@ def truncate(text: str, limit: int = 240) -> str:
     text = normalize_whitespace(text)
     if len(text) <= limit:
         return text
-    return text[: limit - 1].rstrip() + "…"
+    return text[: limit - 1].rstrip() + "..."
 
 
 def approx_tokens(text: str) -> int:
@@ -136,6 +136,19 @@ def to_iso8601(timestamp: float | None) -> str:
     if timestamp is None:
         return datetime.now(timezone.utc).isoformat()
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+
+
+def validate_confidence_score(value: Any, context: str) -> float:
+    """Validate that a confidence score stays inside the expected unit interval."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"{context} must be a number between 0.0 and 1.0")
+
+    score = float(value)
+    if score < 0.0 or score > 1.0:
+        raise ValueError(f"{context} must be between 0.0 and 1.0; got {score}")
+
+    return score
 
 
 def flatten_table_rows(rows: Any) -> str:
@@ -196,7 +209,7 @@ DATE_PATTERNS = [
 ]
 
 AMOUNT_PATTERN = re.compile(
-    r"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?|\b\d[\d,]*(?:\.\d+)?\s?(?:USD|ETB|birr|dollars?)\b)",
+    "(?:[$\u20ac\u00a3]\\s?\\d[\\d,]*(?:\\.\\d+)?|\\b\\d[\\d,]*(?:\\.\\d+)?\\s?(?:USD|ETB|birr|dollars?)\\b)",
     re.IGNORECASE,
 )
 
@@ -320,11 +333,11 @@ def build_entities(document: dict[str, Any]) -> list[dict[str, Any]]:
 def fact_confidence(document: dict[str, Any], page: dict[str, Any] | None = None) -> float:
     if page:
         page_conf = (page.get("metadata") or {}).get("confidence_score")
-        if isinstance(page_conf, (int, float)):
-            return float(page_conf)
+        if page_conf is not None:
+            return validate_confidence_score(page_conf, "page.metadata.confidence_score")
     doc_conf = (document.get("metadata") or {}).get("confidence_score")
-    if isinstance(doc_conf, (int, float)):
-        return float(doc_conf)
+    if doc_conf is not None:
+        return validate_confidence_score(doc_conf, "document.metadata.confidence_score")
     return 0.0
 
 
@@ -413,6 +426,10 @@ def build_record(path: Path, document: dict[str, Any]) -> dict[str, Any]:
 
     extracted_at = to_iso8601(path.stat().st_mtime if path.exists() else None)
     metadata = document.get("metadata") or {}
+
+    provenance_confidence = metadata.get("confidence_score")
+    if provenance_confidence is not None:
+        validate_confidence_score(provenance_confidence, "document.metadata.confidence_score")
 
     return {
         "doc_id": canonical_doc_id,

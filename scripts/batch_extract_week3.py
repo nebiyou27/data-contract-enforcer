@@ -1,4 +1,4 @@
-﻿"""Batch extract Week 3 PDFs and rebuild the Week 7 Week 3 JSONL."""
+"""Batch extract Week 3 PDFs and rebuild the Week 7 Week 3 JSONL."""
 
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ DEFAULT_WEEK3_REPO = Path(r"D:\TRP-1\Week-3\document-refinery")
 DEFAULT_WEEK3_DATA_DIR = DEFAULT_WEEK3_REPO / "data"
 DEFAULT_WEEK3_EXTRACTED_DIR = DEFAULT_WEEK3_REPO / ".refinery" / "extracted"
 DEFAULT_WEEK3_PYTHON = DEFAULT_WEEK3_REPO / "venv" / "Scripts" / "python.exe"
+DEFAULT_CONTRACT_ID = "week3-document-refinery-extractions"
+DEFAULT_VALIDATION_REPORT = Path("validation_reports/week3_auto_validation.json")
 DEFAULT_SKIP_NAMES = {
     "audit report - 2023.pdf",
 }
@@ -98,6 +100,76 @@ def rerun_migration(output_path: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
+def rerun_generator(contract_id: str, source_path: Path) -> subprocess.CompletedProcess[str]:
+    repo_root = Path(__file__).resolve().parents[1]
+    output_dir = repo_root / "generated_contracts"
+    return subprocess.run(
+        [
+            sys.executable,
+            "contracts/generator.py",
+            "--source",
+            str(source_path),
+            "--contract-id",
+            contract_id,
+            "--output",
+            str(output_dir),
+        ],
+        cwd=str(repo_root),
+        text=True,
+        capture_output=True,
+    )
+
+
+def rerun_validation(contract_id: str, source_path: Path, report_path: Path) -> subprocess.CompletedProcess[str]:
+    repo_root = Path(__file__).resolve().parents[1]
+    contract_path = repo_root / "generated_contracts" / f"{contract_id}.yaml"
+    return subprocess.run(
+        [
+            sys.executable,
+            "contracts/runner.py",
+            "--contract",
+            str(contract_path),
+            "--data",
+            str(source_path),
+            "--output",
+            str(report_path),
+            "--mode",
+            "ENFORCE",
+        ],
+        cwd=str(repo_root),
+        text=True,
+        capture_output=True,
+    )
+
+
+def refresh_contract_pipeline(source_path: Path, log) -> bool:
+    """Regenerate the Week 3 contract and run the enforcer against fresh JSONL."""
+
+    generator = rerun_generator(DEFAULT_CONTRACT_ID, source_path)
+    log.write(f"REGENERATE {DEFAULT_CONTRACT_ID}\n")
+    if generator.stdout.strip():
+        log.write(generator.stdout.rstrip() + "\n")
+    if generator.stderr.strip():
+        log.write(generator.stderr.rstrip() + "\n")
+    if generator.returncode != 0:
+        log.write("ERROR contract regeneration failed\n\n")
+        print("Contract regeneration failed. See log for details.", file=sys.stderr)
+        return False
+
+    validation = rerun_validation(DEFAULT_CONTRACT_ID, source_path, DEFAULT_VALIDATION_REPORT)
+    log.write(f"VALIDATE {DEFAULT_VALIDATION_REPORT}\n")
+    if validation.stdout.strip():
+        log.write(validation.stdout.rstrip() + "\n")
+    if validation.stderr.strip():
+        log.write(validation.stderr.rstrip() + "\n")
+    if validation.returncode != 0:
+        log.write("ERROR validation failed -- downstream blocked\n\n")
+        print("Validation failed. Downstream stages blocked. See report for details.", file=sys.stderr)
+        return False
+
+    log.write(f"OK validation report -> {DEFAULT_VALIDATION_REPORT}\n\n")
+    return True
+
 def main() -> int:
     args = parse_args()
     week3_repo = args.week3_repo
@@ -177,6 +249,10 @@ def main() -> int:
             print("Migration failed. See log for details.", file=sys.stderr)
             return 1
 
+
+        if not refresh_contract_pipeline(output_path, log):
+            return 1
+
     try:
         line_count = sum(1 for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip())
     except FileNotFoundError:
@@ -187,6 +263,7 @@ def main() -> int:
     print(f"Extracted: {extracted}")
     print(f"Failed: {failed}")
     print(f"Migration output: {output_path}")
+    print(f"Validation report: {DEFAULT_VALIDATION_REPORT}")
     print(f"Final record count: {line_count}")
     return 0
 
