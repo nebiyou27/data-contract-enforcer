@@ -102,6 +102,79 @@ def flatten_entities(records: list[dict]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def flatten_events(records: list[dict]) -> pd.DataFrame:
+    """Top-level event fields -- one row per event record."""
+    rows = []
+    for r in records:
+        rows.append(
+            {
+                "event_id": r.get("event_id"),
+                "event_type": r.get("event_type"),
+                "aggregate_id": r.get("aggregate_id"),
+                "aggregate_type": r.get("aggregate_type"),
+                "sequence_number": r.get("sequence_number"),
+                "schema_version": r.get("schema_version"),
+                "occurred_at": r.get("occurred_at"),
+                "recorded_at": r.get("recorded_at"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def flatten_event_metadata(records: list[dict]) -> pd.DataFrame:
+    """Flatten metadata sub-object -- one row per event record."""
+    rows = []
+    for r in records:
+        meta = r.get("metadata") or {}
+        rows.append(
+            {
+                "event_id": r.get("event_id"),
+                "causation_id": meta.get("causation_id"),
+                "correlation_id": meta.get("correlation_id"),
+                "user_id": meta.get("user_id"),
+                "source_service": meta.get("source_service"),
+                "original_stream_id": meta.get("original_stream_id"),
+                "global_position": meta.get("global_position"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def flatten_lineage_nodes(records: list[dict]) -> pd.DataFrame:
+    """Explode nodes array from lineage snapshots -- one row per node."""
+    rows = []
+    for r in records:
+        for node in r.get("nodes") or []:
+            meta = node.get("metadata") or {}
+            rows.append(
+                {
+                    "node_id": node.get("node_id"),
+                    "type": node.get("type"),
+                    "label": node.get("label"),
+                    "path": meta.get("path"),
+                    "language": meta.get("language"),
+                    "last_modified": meta.get("last_modified"),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def flatten_lineage_edges(records: list[dict]) -> pd.DataFrame:
+    """Explode edges array from lineage snapshots -- one row per edge."""
+    rows = []
+    for r in records:
+        for edge in r.get("edges") or []:
+            rows.append(
+                {
+                    "source": edge.get("source"),
+                    "target": edge.get("target"),
+                    "relationship": edge.get("relationship"),
+                    "confidence": edge.get("confidence"),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 # --- Stage 2: Profile --------------------------------------------------------
 
 

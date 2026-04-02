@@ -1,0 +1,40 @@
+version: 2
+models:
+- name: lineage_nodes
+  description: Model for lineage_nodes -- derived from contract week4-lineage-graph
+  columns:
+  - name: node_id
+    tests:
+    - not_null
+    - unique
+  - name: type
+    tests:
+    - not_null
+  - name: label
+    tests:
+    - not_null
+  - name: path
+    tests:
+    - not_null
+  - name: language
+    tests:
+    - not_null
+  - name: last_modified
+    tests:
+    - not_null
+- name: lineage_edges
+  description: Model for lineage_edges -- derived from contract week4-lineage-graph
+  columns:
+  - name: source
+    tests:
+    - not_null
+  - name: target
+    tests:
+    - not_null
+  - name: relationship
+    tests:
+    - not_null
+  - name: confidence
+    tests:
+    - not_null
+    description: Numeric. range=[0.7, 0.95], mean=0.825625, stddev=0.093793

@@ -1,0 +1,187 @@
+kind: DataContract
+apiVersion: v3.0.0
+id: week4-lineage-graph
+info:
+  title: 'Data Contract: week4-lineage-graph'
+  version: 1.0.0
+  description: Bitol data contract for Week 4 brownfield-cartographer lineage graph. Snapshot contains 96 nodes and 80 edges.
+    Generated at 2026-04-02T08:36:17.887999+00:00.
+  owner: data-engineering
+  contact:
+    name: TRP Week 7 Generator
+servers:
+  production:
+    type: local
+    path: outputs/week4/lineage_snapshots.jsonl
+    format: jsonl
+    description: Week 4 brownfield-cartographer lineage snapshot export
+schema:
+  type: json
+  tables:
+  - name: lineage_nodes
+    description: Profiled from outputs/week4/lineage_snapshots.jsonl (96 rows, 1 snapshot records)
+    fields:
+    - name: node_id
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=96'
+    - name: type
+      type: string
+      required: true
+      enum:
+      - MODEL
+      - TABLE
+      - PIPELINE
+      - FILE
+      description: 'Profiled: null_fraction=0.0, cardinality=4'
+    - name: label
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=64'
+    - name: path
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=96'
+    - name: language
+      type: string
+      required: true
+      enum:
+      - sql
+      - unknown
+      - yaml
+      description: 'Profiled: null_fraction=0.0, cardinality=3'
+    - name: last_modified
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=20'
+  - name: lineage_edges
+    description: Profiled from outputs/week4/lineage_snapshots.jsonl (80 rows, 1 snapshot records)
+    fields:
+    - name: source
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=50'
+    - name: target
+      type: string
+      required: true
+      description: 'Profiled: null_fraction=0.0, cardinality=38'
+    - name: relationship
+      type: string
+      required: true
+      enum:
+      - READS
+      description: 'Profiled: null_fraction=0.0, cardinality=1'
+    - name: confidence
+      type: number
+      required: true
+      minimum: 0.0
+      maximum: 1.0
+      description: 'Profiled: null_fraction=0.0, cardinality=3, range=[0.7, 0.95], mean=0.825625'
+quality:
+  type: custom
+  specification: https://bitol.io/specs/quality/v1
+  rules:
+  - name: lineage_nodes.node_id.not_null
+    description: node_id must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM lineage_nodes WHERE node_id IS NULL
+    mustBe: 0
+  - name: lineage_nodes.type.not_null
+    description: type must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM lineage_nodes WHERE type IS NULL
+    mustBe: 0
+  - name: lineage_nodes.label.not_null
+    description: label must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM lineage_nodes WHERE label IS NULL
+    mustBe: 0
+  - name: lineage_nodes.node_id.unique
+    description: node_id must be unique across the lineage graph
+    dimension: uniqueness
+    severity: error
+    query: SELECT COUNT(*) - COUNT(DISTINCT node_id) FROM lineage_nodes
+    mustBe: 0
+  - name: lineage_nodes.type.allowed_values
+    description: type must be one of ['FILE', 'MODEL', 'PIPELINE', 'TABLE']
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM lineage_nodes WHERE type NOT IN ('FILE', 'MODEL', 'PIPELINE', 'TABLE') AND type IS NOT NULL
+    mustBe: 0
+  - name: lineage_nodes.language.allowed_values
+    description: language must be one of ['sql', 'yaml', 'unknown']
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM lineage_nodes WHERE language NOT IN ('sql', 'yaml', 'unknown') AND language IS NOT NULL
+    mustBe: 0
+  - name: lineage_nodes.label.non_empty
+    description: label must not be an empty string
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM lineage_nodes WHERE TRIM(label) = ''
+    mustBe: 0
+  - name: lineage_edges.source.not_null
+    description: source must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM lineage_edges WHERE source IS NULL
+    mustBe: 0
+  - name: lineage_edges.target.not_null
+    description: target must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM lineage_edges WHERE target IS NULL
+    mustBe: 0
+  - name: lineage_edges.relationship.not_null
+    description: relationship must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM lineage_edges WHERE relationship IS NULL
+    mustBe: 0
+  - name: lineage_edges.confidence.not_null
+    description: confidence must never be null
+    dimension: completeness
+    severity: error
+    query: SELECT COUNT(*) FROM lineage_edges WHERE confidence IS NULL
+    mustBe: 0
+  - name: lineage_edges.confidence.range_check
+    description: confidence must be between 0.0 and 1.0
+    dimension: validity
+    severity: error
+    query: SELECT COUNT(*) FROM lineage_edges WHERE confidence < 0.0 OR confidence > 1.0
+    mustBe: 0
+  - name: lineage_edges.confidence.floor_check
+    description: confidence < 0.7 signals uncertain lineage; review extraction heuristics
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM lineage_edges WHERE confidence < 0.7
+    mustBe: 0
+  - name: lineage_edges.relationship.allowed_values
+    description: relationship must be one of ['READS', 'WRITES', 'CALLS', 'IMPORTS']
+    dimension: validity
+    severity: warning
+    query: SELECT COUNT(*) FROM lineage_edges WHERE relationship NOT IN ('READS', 'WRITES', 'CALLS', 'IMPORTS') AND relationship
+      IS NOT NULL
+    mustBe: 0
+lineage:
+  inputPorts:
+  - type: lineage_graph
+    uri: outputs/week4/lineage_snapshots.jsonl
+    description: 'Week 4 brownfield-cartographer lineage snapshot: 96 nodes, 80 edges, git_commit=924038677848'
+    format: jsonl
+    recordCount: 1
+    capturedAt: '2026-04-01T16:30:13.679865+00:00'
+  outputPorts:
+  - type: data_contract
+    uri: generated_contracts/week4-lineage-graph.yaml
+    description: Generated Bitol YAML data contract
+    generatedAt: '2026-04-02T08:36:17.887999+00:00'
+  - type: dbt_schema
+    uri: generated_contracts/week4-lineage-graph_dbt_schema.yml
+    description: dbt schema.yml for downstream model testing
+    generatedAt: '2026-04-02T08:36:17.887999+00:00'
+generatedAt: '2026-04-02T08:36:17.887999+00:00'
+generatorVersion: 1.0.0

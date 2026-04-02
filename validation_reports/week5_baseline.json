@@ -1,17 +1,29 @@
 {
-  "report_id": "7478468b-be31-4949-8b26-e83123e5fc9f",
+  "report_id": "90fd087d-127b-4026-a221-04133c5e8933",
   "contract_id": "week5-event-store",
   "snapshot_id": "1ed1632f68980e492325d552d6ba02da6d765854b52971bf74976cccfb8f18f1",
-  "run_timestamp": "2026-04-01T15:24:08.986521+00:00",
-  "total_checks": 16,
-  "passed": 16,
+  "run_timestamp": "2026-04-02T08:41:20.195031+00:00",
+  "total_checks": 43,
+  "passed": 43,
   "failed": 0,
   "warned": 0,
   "errored": 0,
   "results": [
     {
-      "check_id": "documents.doc_id.type",
-      "column_name": "doc_id",
+      "check_id": "events.event_id.required",
+      "column_name": "event_id",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "event_id: all 1198 values present"
+    },
+    {
+      "check_id": "events.event_id.type",
+      "column_name": "event_id",
       "check_type": "type",
       "status": "PASS",
       "actual_value": "object",
@@ -19,11 +31,11 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "doc_id: dtype 'object' matches logical type 'string'"
+      "message": "event_id: dtype 'object' matches logical type 'string'"
     },
     {
-      "check_id": "documents.doc_id.format_uuid",
-      "column_name": "doc_id",
+      "check_id": "events.event_id.format_uuid",
+      "column_name": "event_id",
       "check_type": "format_uuid",
       "status": "PASS",
       "actual_value": "all valid UUIDs",
@@ -31,11 +43,23 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "doc_id: all 0 values are valid UUIDs"
+      "message": "event_id: all 1198 values are valid UUIDs"
     },
     {
-      "check_id": "documents.source_path.type",
-      "column_name": "source_path",
+      "check_id": "events.event_type.required",
+      "column_name": "event_type",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "event_type: all 1198 values present"
+    },
+    {
+      "check_id": "events.event_type.type",
+      "column_name": "event_type",
       "check_type": "type",
       "status": "PASS",
       "actual_value": "object",
@@ -43,11 +67,23 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "source_path: dtype 'object' matches logical type 'string'"
+      "message": "event_type: dtype 'object' matches logical type 'string'"
     },
     {
-      "check_id": "documents.source_hash.type",
-      "column_name": "source_hash",
+      "check_id": "events.aggregate_id.required",
+      "column_name": "aggregate_id",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "aggregate_id: all 1198 values present"
+    },
+    {
+      "check_id": "events.aggregate_id.type",
+      "column_name": "aggregate_id",
       "check_type": "type",
       "status": "PASS",
       "actual_value": "object",
@@ -55,11 +91,35 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "source_hash: dtype 'object' matches logical type 'string'"
+      "message": "aggregate_id: dtype 'object' matches logical type 'string'"
     },
     {
-      "check_id": "documents.extraction_model.type",
-      "column_name": "extraction_model",
+      "check_id": "events.aggregate_id.format_uuid",
+      "column_name": "aggregate_id",
+      "check_type": "format_uuid",
+      "status": "PASS",
+      "actual_value": "all valid UUIDs",
+      "expected": "uuid",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "aggregate_id: all 1198 values are valid UUIDs"
+    },
+    {
+      "check_id": "events.aggregate_type.required",
+      "column_name": "aggregate_type",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "aggregate_type: all 1198 values present"
+    },
+    {
+      "check_id": "events.aggregate_type.type",
+      "column_name": "aggregate_type",
       "check_type": "type",
       "status": "PASS",
       "actual_value": "object",
@@ -67,11 +127,83 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "extraction_model: dtype 'object' matches logical type 'string'"
+      "message": "aggregate_type: dtype 'object' matches logical type 'string'"
     },
     {
-      "check_id": "documents.processing_time_ms.type",
-      "column_name": "processing_time_ms",
+      "check_id": "events.aggregate_type.enum",
+      "column_name": "aggregate_type",
+      "check_type": "enum",
+      "status": "PASS",
+      "actual_value": "all in enum",
+      "expected": "['LoanApplication', 'DocumentPackage', 'AgentSession', 'CreditRecord', 'FraudScreening', 'ComplianceRecord']",
+      "severity": "HIGH",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "aggregate_type: all 1198 values in allowed set"
+    },
+    {
+      "check_id": "events.sequence_number.required",
+      "column_name": "sequence_number",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "sequence_number: all 1198 values present"
+    },
+    {
+      "check_id": "events.sequence_number.type",
+      "column_name": "sequence_number",
+      "check_type": "type",
+      "status": "PASS",
+      "actual_value": "int64",
+      "expected": "integer",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "sequence_number: dtype 'int64' matches logical type 'integer'"
+    },
+    {
+      "check_id": "events.sequence_number.range",
+      "column_name": "sequence_number",
+      "check_type": "range",
+      "status": "PASS",
+      "actual_value": "[0, 12]",
+      "expected": "[0, None]",
+      "severity": "HIGH",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "sequence_number: all 1198 values in range"
+    },
+    {
+      "check_id": "events.sequence_number.drift",
+      "column_name": "sequence_number",
+      "check_type": "drift",
+      "status": "PASS",
+      "actual_value": "mean=4.335559 (z=0.00)",
+      "expected": "baseline mean=4.335559 +/- 3.243798",
+      "severity": "LOW",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "sequence_number: drift z=0.00 within normal range"
+    },
+    {
+      "check_id": "events.schema_version.required",
+      "column_name": "schema_version",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "schema_version: all 1198 values present"
+    },
+    {
+      "check_id": "events.schema_version.type",
+      "column_name": "schema_version",
       "check_type": "type",
       "status": "PASS",
       "actual_value": "object",
@@ -79,11 +211,35 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "processing_time_ms: dtype 'object' matches logical type 'string'"
+      "message": "schema_version: dtype 'object' matches logical type 'string'"
     },
     {
-      "check_id": "documents.token_count_input.type",
-      "column_name": "token_count_input",
+      "check_id": "events.schema_version.enum",
+      "column_name": "schema_version",
+      "check_type": "enum",
+      "status": "PASS",
+      "actual_value": "all in enum",
+      "expected": "['1.0', '2.0']",
+      "severity": "HIGH",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "schema_version: all 1198 values in allowed set"
+    },
+    {
+      "check_id": "events.occurred_at.required",
+      "column_name": "occurred_at",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "occurred_at: all 1198 values present"
+    },
+    {
+      "check_id": "events.occurred_at.type",
+      "column_name": "occurred_at",
       "check_type": "type",
       "status": "PASS",
       "actual_value": "object",
@@ -91,35 +247,11 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "token_count_input: dtype 'object' matches logical type 'string'"
+      "message": "occurred_at: dtype 'object' matches logical type 'string'"
     },
     {
-      "check_id": "documents.token_count_output.type",
-      "column_name": "token_count_output",
-      "check_type": "type",
-      "status": "PASS",
-      "actual_value": "object",
-      "expected": "string",
-      "severity": "CRITICAL",
-      "records_failing": 0,
-      "sample_failing": [],
-      "message": "token_count_output: dtype 'object' matches logical type 'string'"
-    },
-    {
-      "check_id": "documents.extracted_at.type",
-      "column_name": "extracted_at",
-      "check_type": "type",
-      "status": "PASS",
-      "actual_value": "object",
-      "expected": "string",
-      "severity": "CRITICAL",
-      "records_failing": 0,
-      "sample_failing": [],
-      "message": "extracted_at: dtype 'object' matches logical type 'string'"
-    },
-    {
-      "check_id": "documents.extracted_at.format_datetime",
-      "column_name": "extracted_at",
+      "check_id": "events.occurred_at.format_datetime",
+      "column_name": "occurred_at",
       "check_type": "format_datetime",
       "status": "PASS",
       "actual_value": "all valid ISO 8601",
@@ -127,11 +259,11 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "extracted_at: all 0 values are valid date-time"
+      "message": "occurred_at: all 1198 values are valid date-time"
     },
     {
-      "check_id": "documents.fact_count.required",
-      "column_name": "fact_count",
+      "check_id": "events.recorded_at.required",
+      "column_name": "recorded_at",
       "check_type": "required",
       "status": "PASS",
       "actual_value": "0 nulls",
@@ -139,35 +271,35 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "fact_count: all 1198 values present"
+      "message": "recorded_at: all 1198 values present"
     },
     {
-      "check_id": "documents.fact_count.type",
-      "column_name": "fact_count",
+      "check_id": "events.recorded_at.type",
+      "column_name": "recorded_at",
       "check_type": "type",
       "status": "PASS",
-      "actual_value": "int64",
-      "expected": "integer",
+      "actual_value": "object",
+      "expected": "string",
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "fact_count: dtype 'int64' matches logical type 'integer'"
+      "message": "recorded_at: dtype 'object' matches logical type 'string'"
     },
     {
-      "check_id": "documents.fact_count.drift",
-      "column_name": "fact_count",
-      "check_type": "drift",
+      "check_id": "events.recorded_at.format_datetime",
+      "column_name": "recorded_at",
+      "check_type": "format_datetime",
       "status": "PASS",
-      "actual_value": "0.0",
-      "expected": "0.0",
-      "severity": "LOW",
+      "actual_value": "all valid ISO 8601",
+      "expected": "date-time",
+      "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "fact_count: zero-variance column unchanged"
+      "message": "recorded_at: all 1198 values are valid date-time"
     },
     {
-      "check_id": "documents.entity_count.required",
-      "column_name": "entity_count",
+      "check_id": "event_metadata.event_id.required",
+      "column_name": "event_id",
       "check_type": "required",
       "status": "PASS",
       "actual_value": "0 nulls",
@@ -175,11 +307,191 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "entity_count: all 1198 values present"
+      "message": "event_id: all 1198 values present"
     },
     {
-      "check_id": "documents.entity_count.type",
-      "column_name": "entity_count",
+      "check_id": "event_metadata.event_id.type",
+      "column_name": "event_id",
+      "check_type": "type",
+      "status": "PASS",
+      "actual_value": "object",
+      "expected": "string",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "event_id: dtype 'object' matches logical type 'string'"
+    },
+    {
+      "check_id": "event_metadata.event_id.format_uuid",
+      "column_name": "event_id",
+      "check_type": "format_uuid",
+      "status": "PASS",
+      "actual_value": "all valid UUIDs",
+      "expected": "uuid",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "event_id: all 1198 values are valid UUIDs"
+    },
+    {
+      "check_id": "event_metadata.causation_id.type",
+      "column_name": "causation_id",
+      "check_type": "type",
+      "status": "PASS",
+      "actual_value": "object",
+      "expected": "string",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "causation_id: dtype 'object' matches logical type 'string'"
+    },
+    {
+      "check_id": "event_metadata.causation_id.format_uuid",
+      "column_name": "causation_id",
+      "check_type": "format_uuid",
+      "status": "PASS",
+      "actual_value": "all valid UUIDs",
+      "expected": "uuid",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "causation_id: all 0 values are valid UUIDs"
+    },
+    {
+      "check_id": "event_metadata.correlation_id.required",
+      "column_name": "correlation_id",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "correlation_id: all 1198 values present"
+    },
+    {
+      "check_id": "event_metadata.correlation_id.type",
+      "column_name": "correlation_id",
+      "check_type": "type",
+      "status": "PASS",
+      "actual_value": "object",
+      "expected": "string",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "correlation_id: dtype 'object' matches logical type 'string'"
+    },
+    {
+      "check_id": "event_metadata.correlation_id.format_uuid",
+      "column_name": "correlation_id",
+      "check_type": "format_uuid",
+      "status": "PASS",
+      "actual_value": "all valid UUIDs",
+      "expected": "uuid",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "correlation_id: all 1198 values are valid UUIDs"
+    },
+    {
+      "check_id": "event_metadata.user_id.required",
+      "column_name": "user_id",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "user_id: all 1198 values present"
+    },
+    {
+      "check_id": "event_metadata.user_id.type",
+      "column_name": "user_id",
+      "check_type": "type",
+      "status": "PASS",
+      "actual_value": "object",
+      "expected": "string",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "user_id: dtype 'object' matches logical type 'string'"
+    },
+    {
+      "check_id": "event_metadata.source_service.required",
+      "column_name": "source_service",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "source_service: all 1198 values present"
+    },
+    {
+      "check_id": "event_metadata.source_service.type",
+      "column_name": "source_service",
+      "check_type": "type",
+      "status": "PASS",
+      "actual_value": "object",
+      "expected": "string",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "source_service: dtype 'object' matches logical type 'string'"
+    },
+    {
+      "check_id": "event_metadata.source_service.enum",
+      "column_name": "source_service",
+      "check_type": "enum",
+      "status": "PASS",
+      "actual_value": "all in enum",
+      "expected": "['loan-origination', 'document-management', 'agent-runtime', 'credit-analysis', 'fraud-screening', 'compliance-engine']",
+      "severity": "HIGH",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "source_service: all 1198 values in allowed set"
+    },
+    {
+      "check_id": "event_metadata.original_stream_id.required",
+      "column_name": "original_stream_id",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "original_stream_id: all 1198 values present"
+    },
+    {
+      "check_id": "event_metadata.original_stream_id.type",
+      "column_name": "original_stream_id",
+      "check_type": "type",
+      "status": "PASS",
+      "actual_value": "object",
+      "expected": "string",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "original_stream_id: dtype 'object' matches logical type 'string'"
+    },
+    {
+      "check_id": "event_metadata.global_position.required",
+      "column_name": "global_position",
+      "check_type": "required",
+      "status": "PASS",
+      "actual_value": "0 nulls",
+      "expected": "0 nulls",
+      "severity": "CRITICAL",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "global_position: all 1198 values present"
+    },
+    {
+      "check_id": "event_metadata.global_position.type",
+      "column_name": "global_position",
       "check_type": "type",
       "status": "PASS",
       "actual_value": "int64",
@@ -187,19 +499,31 @@
       "severity": "CRITICAL",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "entity_count: dtype 'int64' matches logical type 'integer'"
+      "message": "global_position: dtype 'int64' matches logical type 'integer'"
     },
     {
-      "check_id": "documents.entity_count.drift",
-      "column_name": "entity_count",
+      "check_id": "event_metadata.global_position.range",
+      "column_name": "global_position",
+      "check_type": "range",
+      "status": "PASS",
+      "actual_value": "[1, 1198]",
+      "expected": "[0, None]",
+      "severity": "HIGH",
+      "records_failing": 0,
+      "sample_failing": [],
+      "message": "global_position: all 1198 values in range"
+    },
+    {
+      "check_id": "event_metadata.global_position.drift",
+      "column_name": "global_position",
       "check_type": "drift",
       "status": "PASS",
-      "actual_value": "0.0",
-      "expected": "0.0",
+      "actual_value": "mean=599.5 (z=0.00)",
+      "expected": "baseline mean=599.5 +/- 345.977119",
       "severity": "LOW",
       "records_failing": 0,
       "sample_failing": [],
-      "message": "entity_count: zero-variance column unchanged"
+      "message": "global_position: drift z=0.00 within normal range"
     }
   ]
 }

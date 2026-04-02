@@ -38,7 +38,11 @@ try:
     from contracts.generator import (
         flatten_documents,
         flatten_entities,
+        flatten_event_metadata,
+        flatten_events,
         flatten_facts,
+        flatten_lineage_edges,
+        flatten_lineage_nodes,
         load_jsonl,
     )
 except ModuleNotFoundError:
@@ -47,7 +51,11 @@ except ModuleNotFoundError:
     from contracts.generator import (
         flatten_documents,
         flatten_entities,
+        flatten_event_metadata,
+        flatten_events,
         flatten_facts,
+        flatten_lineage_edges,
+        flatten_lineage_nodes,
         load_jsonl,
     )
 
@@ -511,6 +519,10 @@ TABLE_FLATTENERS = {
     "documents": flatten_documents,
     "extracted_facts": flatten_facts,
     "entities": flatten_entities,
+    "events": flatten_events,
+    "event_metadata": flatten_event_metadata,
+    "lineage_nodes": flatten_lineage_nodes,
+    "lineage_edges": flatten_lineage_edges,
 }
 
 
