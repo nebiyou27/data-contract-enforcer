@@ -27,13 +27,13 @@ Data contracts sit at the boundary between systems. This tool enforces them.
 
 The enforcer ingests raw JSONL data, profiles every column, and produces a Bitol v3.0.0 contract that encodes the invariants observed in that data — required fields, allowed enum values, UUID formats, datetime formats, numeric bounds, and statistical baselines for drift detection. A separate runner then validates new data against those contracts and produces a structured JSON report.
 
-**Current coverage:** 2 contracts written and validated, 1 partial, 3 planned for Sunday.
+**Current coverage:** 3 contracts written and validated, 2 planned.
 
 | System | Contract ID | Status | Checks |
 |---|---|---|---|
 | Week 3 — Document Refinery | `week3-document-refinery-extractions` | Active | 58 — all PASS |
-| Week 5 — Event Store | `week5-event-store` | Active | 16 — all PASS |
-| Week 4 — Cartographer lineage | _(pending lineage JSONL)_ | Partial | — |
+| Week 4 — Cartographer lineage | `week4-lineage-graph` | Active | 24 — all PASS |
+| Week 5 — Event Store | `week5-event-store` | Active | 43 — all PASS |
 | Week 2 — Digital Courtroom | _(planned)_ | Planned | — |
 | LangSmith traces | _(planned)_ | Planned | — |
 
@@ -471,13 +471,13 @@ python contracts/runner.py \
   --output validation_reports/week2_baseline.json
 ```
 
-### Planned contracts (Sunday)
+### Planned contracts
 
 | Contract ID | Source | Interface |
 |---|---|---|
 | `week2-digital-courtroom` | `verdict_records.jsonl` | Week 2 -> Week 7 LLM output validation |
 | `langsmith-traces` | LangSmith trace schema | LangSmith -> Week 7 trace enforcement |
-| `week4-cartographer-lineage` | `lineage_snapshots.jsonl` | Full lineage graph contract with 96-node injection |
+| `week7-trust-boundary` | `contract_registry/subscriptions.yaml` | Registry-first blast-radius governance |
 
 ### Rerunning on expanded datasets
 

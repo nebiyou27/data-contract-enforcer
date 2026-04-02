@@ -2,5 +2,11 @@ venv/
 __pycache__/
 *.pyc
 .env
-Challenge_Documents/*.docx
+.claude/
+Challenge_Documents/
+.refinery/
+violation_log/
+outputs/**/*_injected.jsonl
+validation_reports/*_injected.json
 thursday_report.md
+.claude/ 

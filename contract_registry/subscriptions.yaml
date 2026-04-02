@@ -1,0 +1,37 @@
+subscriptions:
+  - source: Week 3
+    source_contract: week3-document-refinery-extractions
+    target: Week 4
+    target_contract: week4-lineage-graph
+    breaking_fields:
+      - field: documents.fact_count
+        reason: Week 4 depends on extraction completeness; a change here hides missing downstream lineage.
+      - field: extracted_facts.confidence
+        reason: Week 4 lineage quality checks rely on the same confidence semantics used by extraction outputs.
+  - source: Week 4
+    source_contract: week4-lineage-graph
+    target: Week 7
+    target_contract: week7-trust-boundary
+    breaking_fields:
+      - field: lineage_nodes.path
+        reason: Week 7 trust-boundary analysis needs stable node paths to trace ownership and deployment boundaries.
+      - field: lineage_edges.confidence
+        reason: Week 7 uses edge confidence to judge whether lineage can be trusted for impact analysis.
+  - source: Week 5
+    source_contract: week5-event-store
+    target: Week 7
+    target_contract: week7-trust-boundary
+    breaking_fields:
+      - field: events.sequence_number
+        reason: Week 7 readers depend on event ordering; changing this breaks replay and audit semantics.
+      - field: event_metadata.global_position
+        reason: Week 7 blast-radius calculations rely on a stable global ordering for contamination depth.
+  - source: LangSmith
+    source_contract: langsmith-traces
+    target: Week 7
+    target_contract: week7-trust-boundary
+    breaking_fields:
+      - field: traces.trace_id
+        reason: Week 7 trace attribution needs stable trace identifiers to connect producer and subscriber boundaries.
+      - field: spans.parent_id
+        reason: Week 7 trust-boundary reasoning depends on preserved parent-child span relationships.

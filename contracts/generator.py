@@ -6,7 +6,7 @@ Follows the Practitioner Manual's 4-stage approach:
   Stage 1: Load JSONL + flatten nested records into DataFrames
   Stage 2: Profile each column (dtype, null_fraction, cardinality, stats)
   Stage 3: Translate profiles to Bitol YAML clauses using rule set
-  Stage 4: Inject lineage context, write YAML contract + dbt schema.yml
+Stage 4: Inject registry + lineage context, write YAML contract + dbt schema.yml
 
 Usage:
   python contracts/generator.py \
@@ -27,6 +27,12 @@ from typing import Any
 
 import pandas as pd
 import yaml
+
+try:
+    from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
 
 
 # --- Stage 1: Load + Flatten -------------------------------------------------
@@ -474,6 +480,7 @@ def build_contract(
     record_count: int,
     source_path: str,
     row_counts: dict[str, int] | None = None,
+    registry: dict[str, Any] | None = None,
 ) -> dict:
     now = datetime.now(timezone.utc).isoformat()
 
@@ -570,6 +577,10 @@ def build_contract(
             "inputPorts": input_ports,
             "outputPorts": output_ports,
         },
+        "registry": {
+            "path": (registry or {}).get("path"),
+            "subscriptions": (registry or {}).get("subscriptions", []),
+        },
         "generatedAt": now,
         "generatorVersion": "1.0.0",
     }
@@ -646,6 +657,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to lineage snapshots JSONL (optional)",
     )
     parser.add_argument(
+        "--registry",
+        default=str(DEFAULT_REGISTRY_PATH),
+        help="Path to the subscription registry YAML (required)",
+    )
+    parser.add_argument(
         "--output", required=True, help="Output directory for generated contracts"
     )
     args = parser.parse_args(argv)
@@ -691,7 +707,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {clause_count} schema clauses, ~{rule_preview} quality rules")
 
     # -- Stage 4 --------------------------------------------------------------
-    print("[generator] Stage 4 -- Injecting lineage + writing outputs ...")
+    print("[generator] Stage 4 -- Injecting registry + lineage + writing outputs ...")
+    registry = load_registry(args.registry)
+    print(f"  Loaded {len(registry['subscriptions'])} registry subscriptions from {registry['path']}")
     lineage_records = load_lineage(args.lineage)
     if lineage_records:
         print(f"  Loaded {len(lineage_records)} lineage records from {args.lineage}")
@@ -708,6 +726,7 @@ def main(argv: list[str] | None = None) -> int:
         contract_id=args.contract_id,
         tables=tables,
         lineage_records=lineage_records,
+        registry=registry,
         record_count=len(records),
         source_path=args.source,
         row_counts=row_counts,

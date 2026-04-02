@@ -46,6 +46,12 @@ try:
         flatten_lineage_nodes,
         load_jsonl,
     )
+    from contracts.attributor import (
+        DEFAULT_REGISTRY_PATH,
+        attribute_violation,
+        load_lineage_graph,
+        load_registry,
+    )
 except ModuleNotFoundError:
     # Direct script invocation: add project root to path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -58,6 +64,12 @@ except ModuleNotFoundError:
         flatten_lineage_edges,
         flatten_lineage_nodes,
         load_jsonl,
+    )
+    from contracts.attributor import (
+        DEFAULT_REGISTRY_PATH,
+        attribute_violation,
+        load_lineage_graph,
+        load_registry,
     )
 
 # ---------------------------------------------------------------------------
@@ -76,6 +88,7 @@ ISO8601_RE = re.compile(
 )
 
 BASELINES_PATH = Path("schema_snapshots") / "baselines.json"
+VIOLATION_LOG_PATH = Path("violation_log") / "violations.jsonl"
 
 # Map Bitol logical types to acceptable pandas dtypes
 TYPE_MAP: dict[str, set[str]] = {
@@ -645,6 +658,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--contract", required=True, help="Path to contract YAML")
     parser.add_argument("--data", required=True, help="Path to data JSONL")
     parser.add_argument("--output", required=True, help="Path for validation report JSON")
+    parser.add_argument(
+        "--mode",
+        choices=("AUDIT", "WARN", "ENFORCE"),
+        default="AUDIT",
+        help="Validation mode: AUDIT, WARN, or ENFORCE",
+    )
     args = parser.parse_args(argv)
 
     now = datetime.now(timezone.utc)
@@ -656,6 +675,9 @@ def main(argv: list[str] | None = None) -> int:
         contract = yaml.safe_load(fh)
 
     contract_id = contract.get("id", "unknown")
+    registry_section = contract.get("registry") or {}
+    registry_path = registry_section.get("path") or str(DEFAULT_REGISTRY_PATH)
+    registry = load_registry(registry_path)
 
     # Load + flatten data
     print(f"[runner] Loading data: {args.data}")
@@ -667,6 +689,16 @@ def main(argv: list[str] | None = None) -> int:
     table_defs = contract.get("schema", {}).get("tables", [])
     table_names = [t["name"] for t in table_defs]
     frames = flatten_all(records, table_names)
+
+    lineage_input = next(
+        (
+            port.get("uri")
+            for port in contract.get("lineage", {}).get("inputPorts", [])
+            if port.get("type") == "lineage_graph"
+        ),
+        None,
+    )
+    lineage_graph = load_lineage_graph(lineage_input)
 
     for name, df in frames.items():
         print(f"  {name}: {len(df)} rows x {len(df.columns)} cols")
@@ -715,6 +747,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Schema missing: {missing_text}")
         print(f"  Schema new: {new_text}")
 
+    violation_rows = [
+        attribute_violation(result, contract_id, registry, lineage_graph)
+        for result in all_results
+        if result["status"] != "PASS"
+    ]
+    VIOLATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(VIOLATION_LOG_PATH, "w", encoding="utf-8") as fh:
+        for row in violation_rows:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    print(f"[runner] Violation log written: {VIOLATION_LOG_PATH} ({len(violation_rows)} entries)")
+
     # Build report
     report = {
         "report_id": report_id,
@@ -726,8 +769,10 @@ def main(argv: list[str] | None = None) -> int:
         "failed": failed,
         "warned": warned,
         "errored": errored,
+        "mode": args.mode,
         "schema_summary": schema_summary,
         "results": all_results,
+        "violation_log": str(VIOLATION_LOG_PATH),
     }
 
     # Write report
@@ -747,8 +792,13 @@ def main(argv: list[str] | None = None) -> int:
         save_baselines(baselines)
         print(f"[runner] Baselines updated at {BASELINES_PATH}")
 
-    # Exit code: 0 if no FAIL/ERROR, 1 otherwise
-    exit_code = 1 if (failed > 0 or errored > 0) else 0
+    # Exit code depends on the requested operating mode.
+    if args.mode == "AUDIT":
+        exit_code = 0
+    elif args.mode == "WARN":
+        exit_code = 1 if errored > 0 else 0
+    else:  # ENFORCE
+        exit_code = 1 if (failed > 0 or errored > 0) else 0
     print(f"[runner] Done. Exit code: {exit_code}")
     return exit_code
 
