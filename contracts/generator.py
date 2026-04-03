@@ -34,6 +34,14 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
 
+try:
+    import anthropic as _anthropic
+    _ANTHROPIC_AVAILABLE = True
+except ImportError:
+    _ANTHROPIC_AVAILABLE = False
+
+BASELINES_PATH = Path("schema_snapshots") / "baselines.json"
+
 
 # --- Stage 1: Load + Flatten -------------------------------------------------
 
@@ -264,6 +272,121 @@ def profile_dataframe(df: pd.DataFrame) -> list[dict]:
     return [profile_column(df[col]) for col in df.columns]
 
 
+# --- Baseline persistence ----------------------------------------------------
+
+
+def write_baselines(contract_id: str, tables: dict[str, list[dict]]) -> None:
+    """Write mean and stddev per numeric column to schema_snapshots/baselines.json.
+
+    The key format is "<contract_id>/<table_name>" and each column entry stores
+    the statistical baseline needed for drift detection in the runner.
+    """
+    BASELINES_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load existing baselines so we don't clobber unrelated contracts
+    existing: dict = {}
+    if BASELINES_PATH.exists():
+        with open(BASELINES_PATH, "r", encoding="utf-8") as fh:
+            try:
+                existing = json.load(fh)
+            except json.JSONDecodeError:
+                existing = {}
+
+    for table_name, profiles in tables.items():
+        key = f"{contract_id}/{table_name}"
+        col_stats: dict[str, dict] = {}
+        for p in profiles:
+            if "mean" in p and "stddev" in p:
+                col_stats[p["name"]] = {
+                    "mean": p["mean"],
+                    "stddev": p["stddev"],
+                    "min": p.get("min"),
+                    "max": p.get("max"),
+                    "null_fraction": p["null_fraction"],
+                    "cardinality": p["cardinality"],
+                    "count": p.get("cardinality", 0),
+                }
+        if col_stats:
+            existing[key] = col_stats
+
+    with open(BASELINES_PATH, "w", encoding="utf-8") as fh:
+        json.dump(existing, fh, indent=2, ensure_ascii=False)
+
+
+# --- LLM annotation ----------------------------------------------------------
+
+
+def annotate_ambiguous_columns_with_llm(
+    profiles: list[dict],
+    table_name: str,
+    contract_id: str,
+) -> dict[str, str]:
+    """Call Claude to annotate ambiguous columns with a semantic description.
+
+    A column is considered ambiguous when:
+      - dtype is 'object' with cardinality > 10 (not a clear enum or ID)
+      - column name contains no recognisable domain keyword
+
+    Returns a dict of {column_name: llm_description}.
+    Falls back to empty dict when the Anthropic package is unavailable or
+    the API call fails.
+    """
+    ambiguous = [
+        p for p in profiles
+        if p["dtype"] == "object"
+        and p["cardinality"] > 10
+        and not any(kw in p["name"] for kw in ("_id", "_at", "_json", "path", "hash"))
+    ]
+
+    if not ambiguous:
+        return {}
+
+    if not _ANTHROPIC_AVAILABLE:
+        # Graceful degradation: return placeholder annotations
+        return {
+            p["name"]: (
+                f"[LLM annotation unavailable] High-cardinality string column "
+                f"in {table_name} with {p['cardinality']} unique values. "
+                f"Sample: {p['sample_values'][:3]}"
+            )
+            for p in ambiguous
+        }
+
+    col_descriptions = "\n".join(
+        f"- {p['name']}: cardinality={p['cardinality']}, "
+        f"null_fraction={p['null_fraction']}, samples={p['sample_values'][:5]}"
+        for p in ambiguous
+    )
+    prompt = (
+        f"You are annotating columns for a data contract called '{contract_id}', "
+        f"table '{table_name}'.\n\n"
+        f"For each column below, provide a concise one-sentence semantic description "
+        f"suitable for a Bitol YAML data contract 'description' field.\n\n"
+        f"Columns:\n{col_descriptions}\n\n"
+        f"Return a JSON object mapping column_name → description string. "
+        f"No markdown, only valid JSON."
+    )
+
+    try:
+        client = _anthropic.Anthropic()
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = message.content[0].text.strip()
+        return json.loads(raw)
+    except Exception as exc:
+        print(f"  [generator] LLM annotation failed: {exc} — using fallback descriptions")
+        return {
+            p["name"]: (
+                f"[LLM annotation failed] High-cardinality string column "
+                f"'{p['name']}' with {p['cardinality']} unique values."
+            )
+            for p in ambiguous
+        }
+
+
 # --- Stage 3: Profiles -> Bitol field clauses ---------------------------------
 
 # Rule set (in application order):
@@ -333,12 +456,30 @@ def profile_to_field_clause(profile: dict) -> dict:
     if name.endswith("_ref"):
         field["minimum"] = 1
 
+    # Rule 8 -- suspicious distribution warning
+    # A mean > 0.99 suggests near-constant high values (possible data leakage or
+    # a degenerate distribution); mean < 0.01 suggests near-zero values that may
+    # indicate a miscalibrated model or a padding artefact.
+    suspicious_warning: str = ""
+    if "mean" in profile:
+        m = profile["mean"]
+        if m > 0.99:
+            suspicious_warning = (
+                f" WARNING: suspicious distribution — mean={m:.4f} > 0.99 "
+                "(near-constant high value; possible data leakage or calibration issue)"
+            )
+        elif m < 0.01:
+            suspicious_warning = (
+                f" WARNING: suspicious distribution — mean={m:.4f} < 0.01 "
+                "(near-zero values; possible miscalibrated model or padding artefact)"
+            )
+
     # Annotation: profiling stats as description
     stats = [f"null_fraction={null_fraction}", f"cardinality={cardinality}"]
     if "min" in profile:
         stats.append(f"range=[{profile['min']}, {profile['max']}]")
         stats.append(f"mean={profile['mean']}")
-    field["description"] = "Profiled: " + ", ".join(stats)
+    field["description"] = "Profiled: " + ", ".join(stats) + suspicious_warning
 
     return field
 
@@ -618,6 +759,42 @@ def build_contract(
         },
     ]
 
+    # Populate downstream consumers from the lineage graph (Week 4 data)
+    downstream_consumers: list[dict] = []
+    if lineage_records:
+        # lineage_records are raw JSONL records from the lineage snapshots
+        # Each may contain nodes + edges; traverse edges to find downstream targets
+        seen_targets: set[str] = set()
+        for rec in lineage_records:
+            for edge in rec.get("edges") or []:
+                target = edge.get("target") or edge.get("uri") or ""
+                if target and target not in seen_targets:
+                    seen_targets.add(target)
+                    downstream_consumers.append(
+                        {
+                            "id": target,
+                            "relationship": edge.get("relationship", "downstream"),
+                            "confidence": edge.get("confidence"),
+                        }
+                    )
+    # Also populate from the registry subscriptions
+    if registry:
+        source_label = (
+            "LangSmith" if "langsmith" in contract_id.lower()
+            else contract_id.replace("-", " ").title()[:7]
+        )
+        for sub in (registry or {}).get("subscriptions", []):
+            if sub.get("source_contract") == contract_id or sub.get("source") in source_label:
+                cid = sub.get("target_contract") or sub.get("target", "")
+                if cid and cid not in {c["id"] for c in downstream_consumers}:
+                    downstream_consumers.append(
+                        {
+                            "id": cid,
+                            "relationship": "registered_subscriber",
+                            "validation_mode": sub.get("validation_mode"),
+                        }
+                    )
+
     contract = {
         "kind": "DataContract",
         "apiVersion": "v3.0.0",
@@ -660,6 +837,7 @@ def build_contract(
             "path": (registry or {}).get("path"),
             "subscriptions": (registry or {}).get("subscriptions", []),
         },
+        "downstream_consumers": downstream_consumers,
         "generatedAt": now,
         "generatorVersion": "1.0.0",
     }
@@ -769,6 +947,15 @@ def main(argv: list[str] | None = None) -> int:
         rule_preview = sum(len(build_quality_rules(t, p)) for t, p in tables.items())
         print(f"  {clause_count} schema clauses, ~{rule_preview} quality rules")
 
+        # LLM annotation for ambiguous columns
+        print("[generator] Stage 3a -- LLM annotation for ambiguous columns ...")
+        for tname, profiles in tables.items():
+            annotations = annotate_ambiguous_columns_with_llm(profiles, tname, args.contract_id)
+            for p in profiles:
+                if p["name"] in annotations:
+                    p["llm_description"] = annotations[p["name"]]
+                    print(f"  Annotated: {tname}.{p['name']}")
+
         row_counts = {"trace_nodes": len(df_trace)}
     else:
         df_docs = flatten_documents(records)
@@ -805,6 +992,15 @@ def main(argv: list[str] | None = None) -> int:
             len(build_quality_rules(t, p)) for t, p in tables.items()
         )
         print(f"  {clause_count} schema clauses, ~{rule_preview} quality rules")
+
+        # LLM annotation for ambiguous columns
+        print("[generator] Stage 3a -- LLM annotation for ambiguous columns ...")
+        for tname, profiles in tables.items():
+            annotations = annotate_ambiguous_columns_with_llm(profiles, tname, args.contract_id)
+            for p in profiles:
+                if p["name"] in annotations:
+                    p["llm_description"] = annotations[p["name"]]
+                    print(f"  Annotated: {tname}.{p['name']}")
 
         row_counts = {
             "documents": len(df_docs),
@@ -852,6 +1048,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     _write_yaml(contract, snapshot_path)
     print(f"  Snapshot  -> {snapshot_path}")
+
+    # Write statistical baselines (mean, stddev per numeric column)
+    write_baselines(args.contract_id, tables)
+    print(f"  Baselines -> {BASELINES_PATH}")
 
     # Final summary
     actual_rules = len(contract["quality"]["rules"])

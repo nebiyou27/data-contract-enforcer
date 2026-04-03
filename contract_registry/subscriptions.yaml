@@ -1,15 +1,15 @@
-﻿registry:
+registry:
   version: "1.0"
   schema_evolution_policy:
     gate: producer-side
     action_on_breaking_change: block
     registry_update_required: true
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ────────────────────────────────────────────────────────────────────────────
 # CONTRACT CATALOG
 # Primary source of truth for which contracts are active and which are
 # out-of-scope due to missing source data.
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ────────────────────────────────────────────────────────────────────────────
 contracts:
   - id: week3-document-refinery-extractions
     producer: week3-document-refinery
@@ -41,46 +41,135 @@ contracts:
     status: active
     data_path: outputs/traces/automaton_auditor_week2_langsmith_tree.jsonl
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ────────────────────────────────────────────────────────────────────────────
 # SUBSCRIPTIONS
 # Declares which downstream systems depend on each contract and which fields
-# are breaking â€” i.e., a change to these fields must be registered here before
+# are breaking — i.e., a change to these fields must be registered here before
 # the producer is allowed to ship (enforced by the producer-side evolution gate).
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ────────────────────────────────────────────────────────────────────────────
 subscriptions:
-  - source: Week 3
+  # Week 3 → Week 4
+  - contract_id: week3-document-refinery-extractions
+    subscriber_id: week4-lineage-graph
+    source: Week 3
     source_contract: week3-document-refinery-extractions
     target: Week 4
     target_contract: week4-lineage-graph
+    fields_consumed:
+      - extracted_facts.doc_id
+      - extracted_facts.fact_id
+      - extracted_facts.confidence
+      - documents.fact_count
+      - documents.doc_id
     breaking_fields:
       - field: documents.fact_count
-        reason: Week 4 depends on extraction completeness; a change here hides missing downstream lineage.
+        reason: >
+          Week 4 depends on extraction completeness; a change here hides
+          missing downstream lineage.
       - field: extracted_facts.confidence
-        reason: Week 4 lineage quality checks rely on the same confidence semantics used by extraction outputs.
-  - source: Week 4
+        reason: >
+          Week 4 lineage quality checks rely on the same confidence semantics
+          used by extraction outputs.
+    validation_mode: ENFORCE
+    registered_at: "2025-01-15T00:00:00Z"
+    contact: week4-cartographer-team@trp.internal
+
+  # Week 4 → Week 7
+  - contract_id: week4-lineage-graph
+    subscriber_id: week7-trust-boundary
+    source: Week 4
     source_contract: week4-lineage-graph
     target: Week 7
     target_contract: week7-trust-boundary
+    fields_consumed:
+      - lineage_nodes.node_id
+      - lineage_nodes.path
+      - lineage_nodes.label
+      - lineage_edges.source
+      - lineage_edges.target
+      - lineage_edges.confidence
     breaking_fields:
       - field: lineage_nodes.path
-        reason: Week 7 trust-boundary analysis needs stable node paths to trace ownership and deployment boundaries.
+        reason: >
+          Week 7 trust-boundary analysis needs stable node paths to trace
+          ownership and deployment boundaries.
       - field: lineage_edges.confidence
-        reason: Week 7 uses edge confidence to judge whether lineage can be trusted for impact analysis.
-  - source: Week 5
+        reason: >
+          Week 7 uses edge confidence to judge whether lineage can be trusted
+          for impact analysis.
+    validation_mode: ENFORCE
+    registered_at: "2025-01-15T00:00:00Z"
+    contact: week7-data-contracts@trp.internal
+
+  # Week 5 → Week 7
+  - contract_id: week5-event-store
+    subscriber_id: week7-trust-boundary
+    source: Week 5
     source_contract: week5-event-store
     target: Week 7
     target_contract: week7-trust-boundary
+    fields_consumed:
+      - events.event_id
+      - events.event_type
+      - events.sequence_number
+      - event_metadata.global_position
+      - event_metadata.correlation_id
     breaking_fields:
       - field: events.sequence_number
-        reason: Week 7 readers depend on event ordering; changing this breaks replay and audit semantics.
+        reason: >
+          Week 7 readers depend on event ordering; changing this breaks
+          replay and audit semantics.
       - field: event_metadata.global_position
-        reason: Week 7 blast-radius calculations rely on a stable global ordering for contamination depth.
-  - source: LangSmith
+        reason: >
+          Week 7 blast-radius calculations rely on a stable global ordering
+          for contamination depth.
+    validation_mode: ENFORCE
+    registered_at: "2025-01-15T00:00:00Z"
+    contact: week7-data-contracts@trp.internal
+
+  # LangSmith → Week 7
+  - contract_id: langsmith-traces
+    subscriber_id: week7-trust-boundary
+    source: LangSmith
     source_contract: langsmith-traces
     target: Week 7
     target_contract: week7-trust-boundary
+    fields_consumed:
+      - trace_nodes.run_id
+      - trace_nodes.parent_run_id
+      - trace_nodes.run_type
+      - trace_nodes.start_time
+      - trace_nodes.end_time
     breaking_fields:
       - field: trace_nodes.run_id
-        reason: Week 7 trace attribution depends on stable run identifiers across the tree.
+        reason: >
+          Week 7 trace attribution depends on stable run identifiers across
+          the tree.
       - field: trace_nodes.parent_run_id
-        reason: Week 7 needs preserved parent-child span relationships to reconstruct the raw trace tree.
+        reason: >
+          Week 7 needs preserved parent-child span relationships to
+          reconstruct the raw trace tree.
+    validation_mode: ENFORCE
+    registered_at: "2025-01-15T00:00:00Z"
+    contact: week7-data-contracts@trp.internal
+
+  # Week 3 → Week 7 (direct: confidence field drives trust-boundary scoring)
+  - contract_id: week3-document-refinery-extractions
+    subscriber_id: week7-trust-boundary
+    source: Week 3
+    source_contract: week3-document-refinery-extractions
+    target: Week 7
+    target_contract: week7-trust-boundary
+    fields_consumed:
+      - extracted_facts.confidence
+      - extracted_facts.fact_id
+      - documents.extraction_model
+    breaking_fields:
+      - field: extracted_facts.confidence
+        reason: >
+          Week 7 trust-boundary scores are calibrated against confidence
+          values in [0.0, 1.0]; a scale change to 0–100 would silently
+          corrupt all downstream risk thresholds.
+    validation_mode: WARN
+    registered_at: "2025-01-20T00:00:00Z"
+    contact: week7-data-contracts@trp.internal

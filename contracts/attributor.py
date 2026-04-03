@@ -9,12 +9,17 @@ primary source of truth for:
   - which fields are breaking for each subscription
 
 Lineage data is used only as enrichment when available.
+Git log is called on the identified upstream producer file to build a ranked
+blame chain.
 """
 
 from __future__ import annotations
 
 import json
+import subprocess
+import uuid
 from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -121,6 +126,99 @@ def contract_source_label(contract_id: str) -> str:
     return contract_id
 
 
+def _find_producer_file(contract_id: str, registry: dict[str, Any]) -> str | None:
+    """Look up the source data path for a contract from the registry catalog."""
+    for entry in registry.get("contracts", []):
+        if entry.get("id") == contract_id:
+            return entry.get("data_path")
+    return None
+
+
+def _run_git_log(file_path: str, n: int = 20) -> list[dict[str, str]]:
+    """Run git log on a file and return parsed commit records.
+
+    Each record contains: commit_hash, author, commit_timestamp, commit_message.
+    Returns an empty list if git is unavailable or the file has no history.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "git", "log",
+                "--follow",
+                f"-n{n}",
+                "--format=%H|%an|%aI|%s",
+                "--",
+                file_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        commits: list[dict[str, str]] = []
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split("|", 3)
+            if len(parts) >= 4:
+                commits.append(
+                    {
+                        "commit_hash": parts[0],
+                        "author": parts[1],
+                        "commit_timestamp": parts[2],
+                        "commit_message": parts[3],
+                    }
+                )
+        return commits
+    except Exception:
+        return []
+
+
+def _build_blame_chain(
+    commits: list[dict[str, str]],
+    lineage_hops: int = 0,
+    max_candidates: int = 5,
+) -> list[dict[str, Any]]:
+    """Rank git commits and build a blame chain.
+
+    Confidence score formula:
+        base  = 1.0 - (days_since_commit * 0.1)
+        score = base - (lineage_hops * 0.2)
+        score = clamp(score, 0.0, 1.0)
+
+    Returns up to max_candidates entries sorted by confidence descending.
+    """
+    now = datetime.now(timezone.utc)
+    candidates: list[dict[str, Any]] = []
+
+    for commit in commits:
+        try:
+            ts_str = commit["commit_timestamp"]
+            commit_dt = datetime.fromisoformat(ts_str)
+            if commit_dt.tzinfo is None:
+                commit_dt = commit_dt.replace(tzinfo=timezone.utc)
+            days_since = max(0.0, (now - commit_dt).total_seconds() / 86400)
+        except Exception:
+            days_since = 30.0  # fallback when timestamp is unparseable
+
+        base = 1.0 - (days_since * 0.1)
+        score = base - (lineage_hops * 0.2)
+        score = round(max(0.0, min(1.0, score)), 4)
+
+        candidates.append(
+            {
+                "commit_hash": commit["commit_hash"],
+                "author": commit["author"],
+                "commit_timestamp": commit["commit_timestamp"],
+                "commit_message": commit["commit_message"],
+                "confidence_score": score,
+            }
+        )
+
+    candidates.sort(key=lambda c: c["confidence_score"], reverse=True)
+    return candidates[:max_candidates]
+
+
 def _registry_subscriptions_for_source(registry: dict[str, Any], source_label: str) -> list[dict[str, Any]]:
     subscriptions = registry.get("subscriptions", [])
     return [
@@ -197,8 +295,20 @@ def attribute_violation(
     registry: dict[str, Any],
     lineage_graph: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Attach blast-radius metadata to a validation result."""
+    """Attach blast-radius and blame-chain metadata to a validation result.
+
+    Output fields:
+        violation_id    — fresh UUID for this attribution record
+        check_id        — from the original validation result
+        detected_at     — ISO 8601 timestamp
+        blame_chain     — up to 5 ranked git commits for the upstream producer file
+        blast_radius    — affected subscribers and lineage nodes with contamination_depth
+        (plus all original violation fields)
+    """
+    now = datetime.now(timezone.utc).isoformat()
     source_label = contract_source_label(contract_id)
+
+    # --- Registry traversal ------------------------------------------------
     direct = _registry_subscriptions_for_source(registry, source_label)
     if not direct:
         direct = _registry_subscriptions_for_source(registry, contract_id)
@@ -217,22 +327,39 @@ def attribute_violation(
     ]
 
     downstream_target_names = list(depth_map.keys())
-
     lineage_nodes = _enrich_with_lineage(lineage_graph or {}, downstream_target_names)
 
-    note = (
-        f"Registry-first attribution for {contract_id}: "
-        f"{len(direct_subscribers)} direct subscribers; "
-        f"lineage enrichment returned {len(lineage_nodes)} downstream nodes."
-    )
+    # --- Git blame chain ---------------------------------------------------
+    producer_file = _find_producer_file(contract_id, registry)
+    lineage_hops = contamination_depth  # use registry depth as hop count proxy
+    if producer_file:
+        commits = _run_git_log(producer_file, n=20)
+    else:
+        commits = []
 
+    blame_chain = _build_blame_chain(commits, lineage_hops=lineage_hops)
+
+    # --- Assemble output ---------------------------------------------------
     enriched = dict(violation)
     enriched.update(
         {
-            "direct_subscribers": direct_subscribers,
-            "downstream_nodes_from_lineage": lineage_nodes,
-            "contamination_depth": contamination_depth,
-            "note": note,
+            "violation_id": str(uuid.uuid4()),
+            "check_id": violation.get("check_id", ""),
+            "detected_at": now,
+            "blame_chain": blame_chain,
+            "blast_radius": {
+                "direct_subscribers": direct_subscribers,
+                "downstream_pipelines": downstream_target_names,
+                "lineage_nodes": lineage_nodes,
+                "contamination_depth": contamination_depth,
+            },
+            "producer_file": producer_file,
+            "note": (
+                f"Registry-first attribution for {contract_id}: "
+                f"{len(direct_subscribers)} direct subscribers; "
+                f"{len(blame_chain)} blame candidates from git log; "
+                f"lineage enrichment returned {len(lineage_nodes)} downstream nodes."
+            ),
         }
     )
     return enriched

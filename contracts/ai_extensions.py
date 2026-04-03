@@ -2,413 +2,542 @@
 """
 contracts/ai_extensions.py -- AI-driven contract validation checks
 
-Implements three AI-based checks:
-  1. Embedding Drift: Detects semantic drift in text fields using embeddings
-  2. Prompt/Input Validation: Checks LLM inputs for prompt injection patterns
-  3. LLM Output Schema Violation: Validates LLM output conforms to declared schema
+Three required extensions:
+  1. Embedding drift detection  -- cosine distance between current centroid and
+                                   stored baseline centroid, persisted across calls
+  2. Prompt input schema validation -- JSON Schema enforced against document
+                                       metadata; non-conforming records routed
+                                       to a quarantine path
+  3. LLM output schema violation rate -- reads Week 2 verdict records, computes
+                                          violation_rate and trend, writes a WARN
+                                          entry to violation_log/violations.jsonl
+                                          when rate exceeds threshold
 
 Usage:
   python contracts/ai_extensions.py \
-    --data outputs/week2/verdicts.jsonl \
-    --contract generated_contracts/week2-digital-courtroom.yaml \
-    --output validation_reports/week2_ai_checks.json
+    --extractions outputs/week3/extractions.jsonl \
+    --verdicts outputs/week2/verdicts.jsonl \
+    --output validation_reports/ai_checks.json
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import re
+import math
 import sys
+import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+
+EMBEDDING_BASELINE_PATH = Path("schema_snapshots") / "embedding_baseline.json"
+VIOLATION_LOG_PATH = Path("violation_log") / "violations.jsonl"
+QUARANTINE_PATH = Path("quarantine") / "prompt_schema_violations.jsonl"
+
+# JSON Schema for document metadata (prompt inputs)
+DOCUMENT_METADATA_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["doc_id", "source_path", "extracted_at"],
+    "properties": {
+        "doc_id": {"type": "string"},
+        "source_path": {"type": "string"},
+        "extracted_at": {"type": "string"},
+        "extraction_model": {"type": "string"},
+        "processing_time_ms": {"type": "number"},
+    },
+}
+
+# Threshold: violation rate above this triggers a WARN entry in the log
+VIOLATION_RATE_THRESHOLD = 0.05  # 5 %
 
 
-def load_jsonl(path: str) -> list[dict]:
+# ---------------------------------------------------------------------------
+# I/O helpers
+# ---------------------------------------------------------------------------
+
+
+def load_jsonl(path: str | Path) -> list[dict]:
     """Read a JSONL file and return a list of dicts."""
     records: list[dict] = []
-    with open(path, "r", encoding="utf-8") as fh:
+    p = Path(path)
+    if not p.exists():
+        return records
+    with open(p, "r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if line:
-                records.append(json.loads(line))
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
     return records
 
 
-def compute_embedding_fingerprint(text: str) -> tuple[int, set[str]]:
+def _append_violation_log(entry: dict) -> None:
+    VIOLATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(VIOLATION_LOG_PATH, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Extension 1: Embedding drift (cosine distance on bag-of-words centroid)
+# ---------------------------------------------------------------------------
+
+
+def _text_to_bow(text: str) -> dict[str, float]:
+    """Convert text to a bag-of-words vector (term frequencies)."""
+    tokens = text.lower().split()
+    counts: Counter = Counter(tokens)
+    total = sum(counts.values()) or 1
+    return {tok: cnt / total for tok, cnt in counts.items()}
+
+
+def _centroid(vectors: list[dict[str, float]]) -> dict[str, float]:
+    """Average a list of BOW vectors into a single centroid."""
+    if not vectors:
+        return {}
+    vocab: Counter = Counter()
+    for v in vectors:
+        for tok, val in v.items():
+            vocab[tok] += val
+    n = len(vectors)
+    return {tok: total / n for tok, total in vocab.items()}
+
+
+def _cosine_distance(a: dict[str, float], b: dict[str, float]) -> float:
+    """Cosine distance in [0, 1] between two sparse BOW vectors.
+
+    distance = 1 - cosine_similarity
     """
-    Compute a simple embedding fingerprint for a text field.
-    
-    Returns: (word_count, set of unique N-grams)
-    Uses character-level 3-grams as a lightweight embedding proxy.
-    """
-    if not isinstance(text, str):
-        text = str(text)
-    
-    text = text.lower().strip()
-    word_count = len(text.split())
-    
-    # Extract 3-grams
-    trigrams = set()
-    if len(text) >= 3:
-        for i in range(len(text) - 2):
-            trigrams.add(text[i:i+3])
-    
-    return word_count, trigrams
+    keys = set(a) | set(b)
+    dot = sum(a.get(k, 0.0) * b.get(k, 0.0) for k in keys)
+    norm_a = math.sqrt(sum(v * v for v in a.values()))
+    norm_b = math.sqrt(sum(v * v for v in b.values()))
+    if norm_a == 0 or norm_b == 0:
+        return 1.0  # fully dissimilar when one vector is empty
+    similarity = dot / (norm_a * norm_b)
+    return round(1.0 - similarity, 6)
+
+
+def _load_embedding_baseline() -> dict[str, Any] | None:
+    if EMBEDDING_BASELINE_PATH.exists():
+        with open(EMBEDDING_BASELINE_PATH, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    return None
+
+
+def _save_embedding_baseline(centroid: dict[str, float], record_count: int) -> None:
+    EMBEDDING_BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "centroid": centroid,
+        "record_count": record_count,
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+    }
+    with open(EMBEDDING_BASELINE_PATH, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, ensure_ascii=False)
 
 
 def check_embedding_drift(
-    data: list[dict],
-    field_name: str,
-    baseline_sample: list[str] | None = None
+    records: list[dict],
+    text_field: str = "text",
 ) -> dict[str, Any]:
+    """Detect semantic drift using cosine distance between BOW centroids.
+
+    Reads the baseline centroid from EMBEDDING_BASELINE_PATH if it exists;
+    writes a new/updated baseline after every run so the comparison is
+    persistent across calls.
+
+    Thresholds:
+        distance < 0.1  → PASS
+        0.1 ≤ distance < 0.3 → WARN
+        distance ≥ 0.3 → FAIL
     """
-    Check for semantic drift in a text field using embedding fingerprints.
-    
-    Compares current data against a baseline sample (or uses first 10% as baseline).
-    Detects significant changes in vocabulary or text structure.
-    """
-    values = [record.get(field_name, "") for record in data]
-    values = [v for v in values if isinstance(v, str) and v.strip()]
-    
-    if not values:
+    # Collect text values
+    texts: list[str] = []
+    for r in records:
+        val = r.get(text_field, "")
+        if isinstance(val, str) and val.strip():
+            texts.append(val)
+
+    if not texts:
         return {
             "check_type": "embedding_drift",
-            "field_name": field_name,
+            "field_name": text_field,
             "status": "ERROR",
-            "message": f"No text values found for field '{field_name}'"
+            "message": f"No text values found for field '{text_field}'",
         }
-    
-    if baseline_sample is None:
-        # Use first 10% as baseline
-        baseline_size = max(1, len(values) // 10)
-        baseline_sample = values[:baseline_size]
-    
-    current_sample = values[baseline_size:]
-    
-    # Compute baseline statistics
-    baseline_lengths = [len(v) for v in baseline_sample]
-    baseline_words = [len(v.split()) for v in baseline_sample]
-    baseline_trigrams = set()
-    
-    for text in baseline_sample:
-        _, trigrams = compute_embedding_fingerprint(text)
-        baseline_trigrams.update(trigrams)
-    
-    # Compute current statistics
-    current_lengths = [len(v) for v in current_sample] if current_sample else baseline_lengths
-    current_words = [len(v.split()) for v in current_sample] if current_sample else baseline_words
-    current_trigrams = set()
-    
-    for text in current_sample:
-        _, trigrams = compute_embedding_fingerprint(text)
-        current_trigrams.update(trigrams)
-    
-    # Detect drift
-    baseline_avg_len = sum(baseline_lengths) / len(baseline_lengths) if baseline_lengths else 0
-    current_avg_len = sum(current_lengths) / len(current_lengths) if current_lengths else 0
-    
-    baseline_avg_words = sum(baseline_words) / len(baseline_words) if baseline_words else 0
-    current_avg_words = sum(current_words) / len(current_words) if current_words else 0
-    
-    # Calculate percentage changes
-    len_change = ((current_avg_len - baseline_avg_len) / baseline_avg_len * 100) if baseline_avg_len > 0 else 0
-    word_change = ((current_avg_words - baseline_avg_words) / baseline_avg_words * 100) if baseline_avg_words > 0 else 0
-    
-    # Check vocabulary stability
-    new_trigrams = current_trigrams - baseline_trigrams
-    lost_trigrams = baseline_trigrams - current_trigrams
-    vocab_stability = 1.0 - (len(new_trigrams | lost_trigrams) / max(len(baseline_trigrams), len(current_trigrams), 1))
-    
-    # Determine status based on thresholds
-    status = "PASS"
-    warnings = []
-    
-    if abs(len_change) > 20:
-        status = "WARN" if abs(len_change) < 50 else "FAIL"
-        warnings.append(f"Text length changed by {len_change:.1f}%")
-    
-    if abs(word_change) > 20:
-        status = "WARN" if abs(word_change) < 50 else "FAIL"
-        warnings.append(f"Word count changed by {word_change:.1f}%")
-    
-    if vocab_stability < 0.7:
-        status = "WARN" if vocab_stability >= 0.5 else "FAIL"
-        warnings.append(f"Vocabulary stability: {vocab_stability:.2f}")
-    
+
+    current_vectors = [_text_to_bow(t) for t in texts]
+    current_centroid = _centroid(current_vectors)
+
+    baseline_data = _load_embedding_baseline()
+
+    if baseline_data is None:
+        # First run — save baseline and report no drift
+        _save_embedding_baseline(current_centroid, len(texts))
+        return {
+            "check_type": "embedding_drift",
+            "field_name": text_field,
+            "status": "PASS",
+            "severity": "MEDIUM",
+            "cosine_distance": 0.0,
+            "baseline_record_count": 0,
+            "current_record_count": len(texts),
+            "message": "No baseline found — current centroid saved as baseline.",
+        }
+
+    baseline_centroid: dict[str, float] = baseline_data.get("centroid", {})
+    distance = _cosine_distance(baseline_centroid, current_centroid)
+
+    if distance >= 0.3:
+        status = "FAIL"
+    elif distance >= 0.1:
+        status = "WARN"
+    else:
+        status = "PASS"
+
+    # Update baseline with the current centroid
+    _save_embedding_baseline(current_centroid, len(texts))
+
     return {
         "check_type": "embedding_drift",
-        "field_name": field_name,
+        "field_name": text_field,
         "status": status,
         "severity": "MEDIUM",
-        "baseline_avg_length": round(baseline_avg_len, 2),
-        "current_avg_length": round(current_avg_len, 2),
-        "length_change_pct": round(len_change, 2),
-        "baseline_avg_words": round(baseline_avg_words, 2),
-        "current_avg_words": round(current_avg_words, 2),
-        "word_change_pct": round(word_change, 2),
-        "vocabulary_stability": round(vocab_stability, 2),
-        "new_trigram_count": len(new_trigrams),
-        "lost_trigram_count": len(lost_trigrams),
-        "warnings": warnings,
-        "message": " | ".join(warnings) if warnings else "No significant embedding drift detected"
-    }
-
-
-def check_prompt_injection(data: list[dict], field_name: str, content_field: str = "content") -> dict[str, Any]:
-    """
-    Check for prompt injection patterns in input fields.
-    
-    Detects common prompt injection tactics:
-      - System prompt override attempts
-      - Role jailbreak patterns
-      - Token smuggling patterns
-    """
-    values = [record.get(field_name, "") for record in data]
-    values = [v for v in values if isinstance(v, str) and v.strip()]
-    
-    if not values:
-        return {
-            "check_type": "prompt_injection",
-            "field_name": field_name,
-            "status": "PASS",
-            "message": f"No text values found for field '{field_name}'"
-        }
-    
-    # Common injection patterns (case-insensitive)
-    injection_patterns = [
-        r"(?i)system\s*prompt",
-        r"(?i)ignore\s+previous",
-        r"(?i)forget\s+all",
-        r"(?i)pretend\s+you\s+are",
-        r"(?i)act\s+as\s+an?",
-        r"(?i)you\s+are\s+now",
-        r"(?i)from\s+now\s+on",
-        r"(?i)<\s*system\s*>",
-        r"(?i)<!--.*?-->",  # HTML comments
-        r"(?i)```.*?```",  # Code blocks
-    ]
-    
-    suspicious_records = []
-    total_injections = 0
-    
-    for i, text in enumerate(values):
-        for pattern in injection_patterns:
-            if re.search(pattern, text):
-                total_injections += 1
-                suspicious_records.append({
-                    "record_index": i,
-                    "pattern": pattern,
-                    "sample": text[:100]
-                })
-                break
-    
-    status = "PASS"
-    if total_injections > 0:
-        injection_rate = total_injections / len(values) * 100
-        if injection_rate > 10:
-            status = "FAIL"
-        elif injection_rate > 2:
-            status = "WARN"
-        else:
-            status = "WARN"
-    
-    return {
-        "check_type": "prompt_injection",
-        "field_name": field_name,
-        "status": status,
-        "severity": "HIGH",
-        "records_scanned": len(values),
-        "suspicions_found": total_injections,
-        "injection_rate_pct": round(total_injections / len(values) * 100, 2) if values else 0,
-        "sample_suspicions": suspicious_records[:5],
+        "cosine_distance": distance,
+        "baseline_record_count": baseline_data.get("record_count", 0),
+        "current_record_count": len(texts),
+        "baseline_saved_at": baseline_data.get("saved_at"),
         "message": (
-            f"Found {total_injections} potential prompt injection patterns "
-            f"in {total_injections / len(values) * 100:.1f}% of records"
-            if total_injections > 0 else
-            "No prompt injection patterns detected"
-        )
+            f"Embedding cosine distance from baseline centroid: {distance:.4f}"
+            + (" (drift detected)" if status != "PASS" else " (within threshold)")
+        ),
     }
 
 
-def check_llm_output_schema(data: list[dict], output_field: str = "verdict") -> dict[str, Any]:
+# ---------------------------------------------------------------------------
+# Extension 2: Prompt input schema validation (JSON Schema enforcement)
+# ---------------------------------------------------------------------------
+
+
+def _validate_against_schema(record: dict, schema: dict) -> list[str]:
+    """Minimal JSON Schema validator for type:object with required and properties.
+
+    Returns a list of violation messages (empty → valid).
     """
-    Check if LLM outputs conform to expected schema.
-    
-    Validates:
-      - Field presence (required fields exist)
-      - Type conformance (values match expected types)
-      - Schema structure compliance
-    """
-    if not data:
-        return {
-            "check_type": "llm_output_schema",
-            "status": "ERROR",
-            "message": "No data provided"
-        }
-    
-    schema_violations = {
-        "missing_field": 0,
-        "type_mismatch": 0,
-        "invalid_json": 0,
-        "incomplete_response": 0
-    }
-    
-    total_records = len(data)
-    
-    for record in data:
-        # Check if output field exists
-        if output_field not in record:
-            schema_violations["missing_field"] += 1
+    errors: list[str] = []
+
+    if schema.get("type") != "object":
+        return errors  # only handles object schemas
+
+    for required_field in schema.get("required", []):
+        if required_field not in record:
+            errors.append(f"Missing required field: '{required_field}'")
+
+    for prop_name, prop_schema in schema.get("properties", {}).items():
+        if prop_name not in record:
             continue
-        
-        output = record[output_field]
-        
-        # If output is a dict, it passed basic parsing
-        if isinstance(output, dict):
-            # Check for required verdict fields
-            required_fields = ["decision", "confidence", "reasoning"]
-            for field in required_fields:
-                if field not in output:
-                    schema_violations["incomplete_response"] += 1
-                    break
-            
-            # Type check confidence (should be numeric 0-1)
-            if isinstance(output.get("confidence"), (int, float)):
-                confidence = output["confidence"]
-                if not (0 <= confidence <= 1):
-                    schema_violations["type_mismatch"] += 1
-            elif output.get("confidence") is not None:
-                schema_violations["type_mismatch"] += 1
-        
-        # If output is a string, try to parse as JSON
-        elif isinstance(output, str):
-            try:
-                parsed = json.loads(output)
-                if not isinstance(parsed, dict):
-                    schema_violations["invalid_json"] += 1
-            except json.JSONDecodeError:
-                schema_violations["invalid_json"] += 1
-        
-        # Any other type is a violation
-        else:
-            schema_violations["type_mismatch"] += 1
-    
-    violation_rate = sum(schema_violations.values()) / total_records * 100 if total_records > 0 else 0
-    
-    status = "PASS"
-    if violation_rate == 0:
+        value = record[prop_name]
+        expected_type = prop_schema.get("type")
+        if expected_type == "string" and not isinstance(value, str):
+            errors.append(f"Field '{prop_name}' must be string, got {type(value).__name__}")
+        elif expected_type == "number" and not isinstance(value, (int, float)):
+            errors.append(f"Field '{prop_name}' must be number, got {type(value).__name__}")
+        elif expected_type == "integer" and not isinstance(value, int):
+            errors.append(f"Field '{prop_name}' must be integer, got {type(value).__name__}")
+
+    return errors
+
+
+def check_prompt_input_schema(
+    records: list[dict],
+    schema: dict | None = None,
+) -> dict[str, Any]:
+    """Enforce JSON Schema against document metadata (prompt inputs).
+
+    Non-conforming records are written to QUARANTINE_PATH.
+    """
+    if schema is None:
+        schema = DOCUMENT_METADATA_SCHEMA
+
+    quarantine_records: list[dict] = []
+    total = len(records)
+    violations = 0
+
+    for record in records:
+        errors = _validate_against_schema(record, schema)
+        if errors:
+            violations += 1
+            quarantine_records.append(
+                {
+                    "record": record,
+                    "schema_errors": errors,
+                    "quarantined_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+
+    # Write quarantine file
+    if quarantine_records:
+        QUARANTINE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(QUARANTINE_PATH, "w", encoding="utf-8") as fh:
+            for qr in quarantine_records:
+                fh.write(json.dumps(qr, ensure_ascii=False) + "\n")
+
+    violation_rate = violations / total if total > 0 else 0.0
+
+    if violation_rate == 0.0:
         status = "PASS"
-    elif violation_rate < 5:
+    elif violation_rate < 0.1:
         status = "WARN"
     else:
         status = "FAIL"
-    
+
     return {
-        "check_type": "llm_output_schema",
-        "output_field": output_field,
+        "check_type": "prompt_input_schema",
         "status": status,
         "severity": "HIGH",
-        "records_scanned": total_records,
-        "violations_found": sum(schema_violations.values()),
-        "violation_rate_pct": round(violation_rate, 2),
-        "violation_breakdown": schema_violations,
+        "records_scanned": total,
+        "violations_found": violations,
+        "violation_rate_pct": round(violation_rate * 100, 2),
+        "quarantine_path": str(QUARANTINE_PATH) if quarantine_records else None,
         "message": (
-            f"LLM output schema check: {sum(schema_violations.values())} "
-            f"violations in {total_records} records "
-            f"({violation_rate:.1f}% violation rate)"
-        )
+            f"Prompt input schema: {violations}/{total} records non-conforming "
+            f"({violation_rate * 100:.1f}%)"
+            + (f"; {len(quarantine_records)} routed to quarantine" if quarantine_records else "")
+        ),
     }
 
 
-def main():
+# ---------------------------------------------------------------------------
+# Extension 3: LLM output schema violation rate (reads Week 2 verdicts)
+# ---------------------------------------------------------------------------
+
+
+def check_llm_output_violation_rate(
+    verdicts_path: str | Path,
+) -> dict[str, Any]:
+    """Compute violation_rate and trend from Week 2 verdict records.
+
+    Writes a WARN entry to violation_log/violations.jsonl when the rate
+    exceeds VIOLATION_RATE_THRESHOLD.
+
+    A verdict record is considered a schema violation when:
+      - the 'verdict' field is missing
+      - the 'verdict' is not a dict (i.e. not structured output)
+      - required sub-fields (decision, confidence, reasoning) are absent
+      - confidence is outside [0, 1]
+    """
+    records = load_jsonl(verdicts_path)
+
+    if not records:
+        return {
+            "check_type": "llm_output_violation_rate",
+            "status": "ERROR",
+            "message": f"No verdict records found at {verdicts_path}",
+        }
+
+    total = len(records)
+    violation_count = 0
+    violation_types: Counter = Counter()
+
+    # Split into first half / second half to compute trend
+    mid = total // 2
+    first_half_violations = 0
+    second_half_violations = 0
+
+    for i, record in enumerate(records):
+        is_violation = False
+
+        verdict = record.get("verdict")
+        if verdict is None:
+            is_violation = True
+            violation_types["missing_verdict"] += 1
+        elif isinstance(verdict, dict):
+            for required in ("decision", "confidence", "reasoning"):
+                if required not in verdict:
+                    is_violation = True
+                    violation_types[f"missing_{required}"] += 1
+                    break
+            conf = verdict.get("confidence")
+            if isinstance(conf, (int, float)):
+                if not (0.0 <= conf <= 1.0):
+                    is_violation = True
+                    violation_types["confidence_out_of_range"] += 1
+            elif conf is not None:
+                is_violation = True
+                violation_types["confidence_type_mismatch"] += 1
+        elif isinstance(verdict, str):
+            try:
+                parsed = json.loads(verdict)
+                if not isinstance(parsed, dict):
+                    is_violation = True
+                    violation_types["invalid_json_structure"] += 1
+            except json.JSONDecodeError:
+                is_violation = True
+                violation_types["unparseable_json"] += 1
+        else:
+            is_violation = True
+            violation_types["unexpected_type"] += 1
+
+        if is_violation:
+            violation_count += 1
+            if i < mid:
+                first_half_violations += 1
+            else:
+                second_half_violations += 1
+
+    violation_rate = violation_count / total
+    first_rate = first_half_violations / mid if mid > 0 else 0.0
+    second_rate = second_half_violations / (total - mid) if (total - mid) > 0 else 0.0
+
+    if second_rate > first_rate + 0.05:
+        trend = "increasing"
+    elif first_rate > second_rate + 0.05:
+        trend = "decreasing"
+    else:
+        trend = "stable"
+
+    if violation_rate == 0.0:
+        status = "PASS"
+    elif violation_rate < VIOLATION_RATE_THRESHOLD:
+        status = "WARN"
+    else:
+        status = "FAIL"
+
+    # Write WARN entry to violation log when threshold is exceeded
+    if violation_rate > VIOLATION_RATE_THRESHOLD:
+        log_entry = {
+            "violation_id": str(uuid.uuid4()),
+            "check_type": "llm_output_violation_rate",
+            "detected_at": datetime.now(timezone.utc).isoformat(),
+            "status": "WARN",
+            "severity": "HIGH",
+            "source": str(verdicts_path),
+            "violation_rate": round(violation_rate, 4),
+            "violation_count": violation_count,
+            "total_records": total,
+            "trend": trend,
+            "violation_breakdown": dict(violation_types),
+            "message": (
+                f"LLM output violation rate {violation_rate * 100:.1f}% "
+                f"exceeds threshold {VIOLATION_RATE_THRESHOLD * 100:.0f}% "
+                f"(trend: {trend})"
+            ),
+        }
+        _append_violation_log(log_entry)
+
+    return {
+        "check_type": "llm_output_violation_rate",
+        "status": status,
+        "severity": "HIGH",
+        "source": str(verdicts_path),
+        "records_scanned": total,
+        "violation_count": violation_count,
+        "violation_rate_pct": round(violation_rate * 100, 2),
+        "trend": trend,
+        "violation_breakdown": dict(violation_types),
+        "threshold_pct": VIOLATION_RATE_THRESHOLD * 100,
+        "wrote_to_violation_log": violation_rate > VIOLATION_RATE_THRESHOLD,
+        "message": (
+            f"LLM output schema violation rate: {violation_rate * 100:.1f}% "
+            f"({violation_count}/{total} records, trend: {trend})"
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Single entry point invoking all three extensions
+# ---------------------------------------------------------------------------
+
+
+def run_all_extensions(
+    extractions_path: str | Path,
+    verdicts_path: str | Path,
+) -> dict[str, Any]:
+    """Invoke all three AI extensions and return a combined report."""
+    extractions = load_jsonl(extractions_path)
+
+    # Flatten extracted_facts for embedding drift check
+    fact_texts: list[dict] = []
+    for doc in extractions:
+        for fact in doc.get("extracted_facts") or []:
+            fact_texts.append(fact)
+
+    checks: list[dict] = []
+
+    # 1. Embedding drift on extracted fact text
+    checks.append(check_embedding_drift(fact_texts, text_field="text"))
+
+    # 2. Prompt input schema validation on document metadata
+    checks.append(check_prompt_input_schema(extractions))
+
+    # 3. LLM output violation rate from Week 2 verdicts
+    checks.append(check_llm_output_violation_rate(verdicts_path))
+
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "extractions_file": str(extractions_path),
+        "verdicts_file": str(verdicts_path),
+        "records_analyzed": len(extractions),
+        "checks_run": len(checks),
+        "checks": checks,
+        "summary": {
+            "total_checks": len(checks),
+            "passed": sum(1 for c in checks if c.get("status") == "PASS"),
+            "warned": sum(1 for c in checks if c.get("status") == "WARN"),
+            "failed": sum(1 for c in checks if c.get("status") == "FAIL"),
+            "errored": sum(1 for c in checks if c.get("status") == "ERROR"),
+        },
+    }
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run AI-driven contract validation checks"
+        description="Run AI-driven contract validation checks (all three extensions)"
     )
     parser.add_argument(
-        "--data",
-        required=True,
-        help="Path to JSONL data file"
+        "--extractions",
+        default="outputs/week3/extractions.jsonl",
+        help="Path to extractions JSONL (Week 3 output) for embedding drift",
     )
     parser.add_argument(
-        "--contract",
-        help="Path to contract YAML (for schema validation)"
+        "--verdicts",
+        default="outputs/week2/verdicts.jsonl",
+        help="Path to Week 2 verdict records for LLM output violation rate",
     )
     parser.add_argument(
         "--output",
-        help="Path to write AI checks report JSON"
+        help="Path to write AI checks report JSON",
     )
-    
+
     args = parser.parse_args()
-    
+
     try:
-        data = load_jsonl(args.data)
-        
-        if not data:
-            print("ERROR: No data loaded", file=sys.stderr)
-            sys.exit(1)
-        
-        # Run all three checks
-        checks = []
-        
-        # Check for text fields that might have embedding drift
-        if data and isinstance(data[0], dict):
-            for field_name in data[0].keys():
-                sample_value = data[0].get(field_name)
-                if isinstance(sample_value, str):
-                    # Run embedding drift check on text fields
-                    result = check_embedding_drift(data, field_name)
-                    checks.append(result)
-                    
-                    # Run prompt injection check on input-like fields
-                    if "input" in field_name.lower() or "prompt" in field_name.lower():
-                        result = check_prompt_injection(data, field_name)
-                        checks.append(result)
-        
-        # Check LLM output schema
-        result = check_llm_output_schema(data, output_field="verdict")
-        checks.append(result)
-        
-        report = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "data_file": args.data,
-            "records_analyzed": len(data),
-            "checks_run": len(checks),
-            "checks": checks,
-            "summary": {
-                "total_checks": len(checks),
-                "passed": sum(1 for c in checks if c.get("status") == "PASS"),
-                "warned": sum(1 for c in checks if c.get("status") == "WARN"),
-                "failed": sum(1 for c in checks if c.get("status") == "FAIL"),
-                "errored": sum(1 for c in checks if c.get("status") == "ERROR")
-            }
-        }
-        
+        report = run_all_extensions(args.extractions, args.verdicts)
+
         if args.output:
             output_path = Path(args.output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, "w", encoding="utf-8") as fh:
-                json.dump(report, fh, indent=2)
+                json.dump(report, fh, indent=2, ensure_ascii=False)
             print(f"Report written to {output_path}")
-        
+
         print(json.dumps(report, indent=2))
-        
-        # Exit code based on failures
-        if report["summary"]["failed"] > 0:
-            sys.exit(1)
-        else:
-            sys.exit(0)
-    
-    except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
+
+        return 1 if report["summary"]["failed"] > 0 else 0
+
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         import traceback
         traceback.print_exc()
-        sys.exit(2)
+        return 2
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -45,47 +45,34 @@ def compute_data_health_score(
     schema_evolution: dict | None = None,
     violation_count: int = 0
 ) -> int:
+    """Compute data health score from 0-100.
+
+    Formula:
+        base  = (checks_passed / total_checks) * 100
+        score = base - (20 * critical_violation_count)
+        score = clamp(score, 0, 100)
+
+    CRITICAL violations are results with severity == 'CRITICAL' and status == 'FAIL'.
     """
-    Compute data health score from 0-100.
-    
-    Scoring:
-      - Base: 100 points
-      - Validation failures: -10 per failed check
-      - Drift warnings: -5 per warning
-      - AI check failures: -8 per failure
-      - Schema breaking changes: -15
-      - Known violations: -5 per violation
-    """
-    score = 100
-    
-    # Process validation reports
+    total_checks = 0
+    checks_passed = 0
+    critical_violations = 0
+
     for report in validation_reports:
-        failed = report.get("failed", 0)
-        warned = report.get("warned", 0)
-        
-        score -= failed * 10
-        score -= warned * 5
-    
-    # Process AI checks
-    if ai_checks:
-        checks = ai_checks.get("checks", [])
-        for check in checks:
-            if check.get("status") == "FAIL":
-                score -= 8
-            elif check.get("status") == "WARN":
-                score -= 3
-    
-    # Process schema evolution
-    if schema_evolution:
-        if schema_evolution.get("verdict") == "breaking":
-            breaking_count = schema_evolution.get("total_breaking", 0)
-            score -= breaking_count * 15
-    
-    # Process violations
-    score -= violation_count * 5
-    
-    # Clamp to 0-100
-    return max(0, min(100, score))
+        total_checks += report.get("total_checks", 0)
+        checks_passed += report.get("passed", 0)
+        # Count CRITICAL-severity FAILs across all result entries
+        for result in report.get("results", []):
+            if result.get("status") == "FAIL" and result.get("severity") == "CRITICAL":
+                critical_violations += 1
+
+    if total_checks == 0:
+        base = 0.0
+    else:
+        base = (checks_passed / total_checks) * 100
+
+    score = base - (20 * critical_violations)
+    return max(0, min(100, int(round(score))))
 
 
 def aggregate_validation_results(
@@ -249,7 +236,8 @@ def generate_report(
             validation_agg,
             ai_agg,
             schema_agg,
-            violation_count
+            violation_count,
+            validation_reports=validation_reports,
         )
     }
     
@@ -260,45 +248,113 @@ def make_recommendations(
     validation_agg: dict,
     ai_agg: dict,
     schema_agg: dict,
-    violation_count: int
+    violation_count: int,
+    validation_reports: list[dict] | None = None,
 ) -> list[str]:
-    """Generate actionable recommendations based on findings."""
-    recommendations = []
-    
-    if validation_agg["total_failed"] > 0:
+    """Generate data-driven recommendations naming exact file paths and contract clauses."""
+    recommendations: list[str] = []
+
+    # Collect failing check details from raw reports
+    failing_checks: list[dict] = []
+    warned_checks: list[dict] = []
+    if validation_reports:
+        for report in validation_reports:
+            contract_id = report.get("contract_id", "unknown")
+            contract_path = f"generated_contracts/{contract_id}.yaml"
+            for result in report.get("results", []):
+                if result.get("status") == "FAIL":
+                    failing_checks.append(
+                        {
+                            "contract_path": contract_path,
+                            "check_id": result.get("check_id", ""),
+                            "column": result.get("column_name", ""),
+                            "severity": result.get("severity", ""),
+                            "message": result.get("message", ""),
+                        }
+                    )
+                elif result.get("status") == "WARN":
+                    warned_checks.append(
+                        {
+                            "contract_path": contract_path,
+                            "check_id": result.get("check_id", ""),
+                            "column": result.get("column_name", ""),
+                            "message": result.get("message", ""),
+                        }
+                    )
+
+    # Specific recommendations for each CRITICAL/HIGH failure
+    critical_shown = 0
+    for fc in failing_checks:
+        if fc["severity"] == "CRITICAL" and critical_shown < 3:
+            recommendations.append(
+                f"CRITICAL: Fix clause '{fc['check_id']}' in "
+                f"{fc['contract_path']} — {fc['message']}. "
+                f"Downstream consumers reading '{fc['column']}' will receive corrupt data."
+            )
+            critical_shown += 1
+
+    high_shown = 0
+    for fc in failing_checks:
+        if fc["severity"] == "HIGH" and high_shown < 3:
+            recommendations.append(
+                f"HIGH: Resolve '{fc['check_id']}' in "
+                f"{fc['contract_path']} — {fc['message']}."
+            )
+            high_shown += 1
+
+    remaining = validation_agg.get("total_failed", 0) - critical_shown - high_shown
+    if remaining > 0:
         recommendations.append(
-            f"Fix {validation_agg['total_failed']} failing validation checks before deploying"
+            f"Fix {remaining} additional failing checks listed in validation_reports/."
         )
-    
-    if validation_agg["total_warned"] > 0:
+
+    # Drift warnings with specific clause references
+    if warned_checks:
+        top = warned_checks[:2]
+        for wc in top:
+            recommendations.append(
+                f"WARN: Investigate drift on clause '{wc['check_id']}' in "
+                f"{wc['contract_path']} — {wc['message']}. "
+                f"Refresh schema_snapshots/baselines.json if the distribution shift is intentional."
+            )
+        if len(warned_checks) > 2:
+            recommendations.append(
+                f"Investigate {len(warned_checks) - 2} additional drift warnings in "
+                "validation_reports/."
+            )
+
+    # AI check failures
+    if ai_agg.get("failed", 0) > 0:
         recommendations.append(
-            f"Investigate {validation_agg['total_warned']} drift warnings - "
-            "data distribution may be changing"
+            f"Review {ai_agg['failed']} AI check failure(s) in "
+            "validation_reports/ai_checks.json — "
+            "check contracts/ai_extensions.py clause 'llm_output_violation_rate' "
+            "and 'embedding_drift' for threshold breaches."
         )
-    
-    if ai_agg["failed"] > 0:
+
+    # Schema breaking changes
+    if schema_agg.get("verdict") == "breaking":
         recommendations.append(
-            f"Review {ai_agg['failed']} AI check failures - "
-            "potential LLM output quality or prompt injection issues"
+            f"Schema has {schema_agg['breaking_changes']} breaking change(s) — "
+            "update contract_registry/subscriptions.yaml with a migration plan "
+            "before shipping. Run: python contracts/schema_analyzer.py "
+            "--contract-id <id> to generate the rollback plan."
         )
-    
-    if schema_agg["verdict"] == "breaking":
-        recommendations.append(
-            f"Schema has {schema_agg['breaking_changes']} breaking changes - "
-            "update registry and notify downstream subscribers"
-        )
-    
+
+    # Violation log
     if violation_count > 0:
         recommendations.append(
-            f"{violation_count} violations recorded - "
-            "perform post-incident review and update contracts if needed"
+            f"{violation_count} violation(s) recorded in violation_log/violations.jsonl — "
+            "audit blame_chain entries and notify owners listed under "
+            "blast_radius.direct_subscribers."
         )
-    
+
     if not recommendations:
         recommendations.append(
-            "Data contracts are healthy. Continue regular monitoring with baseline refreshes."
+            "Data contracts are healthy. Schedule a baseline refresh via: "
+            "python contracts/generator.py --source <data> --contract-id <id> --output generated_contracts/"
         )
-    
+
     return recommendations
 
 

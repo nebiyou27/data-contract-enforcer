@@ -1225,12 +1225,24 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[runner] Baselines updated at {BASELINES_PATH}")
 
     # Exit code depends on the requested operating mode.
+    #   AUDIT   — log only, always exit 0
+    #   WARN    — block when any CRITICAL-severity check fails
+    #   ENFORCE — block when any HIGH or CRITICAL check fails
+    critical_fails = sum(
+        1 for r in all_results
+        if r["status"] == "FAIL" and r.get("severity") == "CRITICAL"
+    )
+    high_or_critical_fails = sum(
+        1 for r in all_results
+        if r["status"] == "FAIL" and r.get("severity") in ("CRITICAL", "HIGH")
+    )
+
     if args.mode == "AUDIT":
         exit_code = 0
     elif args.mode == "WARN":
-        exit_code = 1 if errored > 0 else 0
+        exit_code = 1 if critical_fails > 0 else 0
     else:  # ENFORCE
-        exit_code = 1 if (failed > 0 or errored > 0) else 0
+        exit_code = 1 if (high_or_critical_fails > 0 or errored > 0) else 0
     print(f"[runner] Done. Exit code: {exit_code}")
     return exit_code
 
