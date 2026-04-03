@@ -1,61 +1,29 @@
 version: 2
 models:
-- name: events
-  description: Model for events -- derived from contract week5-event-store
+- name: documents
+  description: Model for documents -- derived from contract week5-event-store
   columns:
-  - name: event_id
-    tests:
-    - not_null
-    - unique
-  - name: event_type
-    tests:
-    - not_null
-  - name: aggregate_id
-    tests:
-    - not_null
-    - unique
-  - name: aggregate_type
-    tests:
-    - not_null
-  - name: sequence_number
-    tests:
-    - not_null
-    description: Numeric. range=[0.0, 12.0], mean=4.335559, stddev=3.243798
-  - name: schema_version
-    tests:
-    - not_null
-  - name: occurred_at
-    tests:
-    - not_null
-  - name: recorded_at
-    tests:
-    - not_null
-- name: event_metadata
-  description: Model for event_metadata -- derived from contract week5-event-store
-  columns:
-  - name: event_id
-    tests:
-    - not_null
-    - unique
-  - name: causation_id
+  - name: doc_id
     tests:
     - unique
-  - name: correlation_id
+  - name: source_path
+  - name: source_hash
+  - name: extraction_model
+  - name: processing_time_ms
+  - name: token_count_input
+  - name: token_count_output
+  - name: extracted_at
+  - name: fact_count
     tests:
     - not_null
-    - unique
-  - name: user_id
+    description: Numeric. range=[0.0, 0.0], mean=0.0, stddev=0.0
+  - name: entity_count
     tests:
     - not_null
-    - unique
-  - name: source_service
-    tests:
-    - not_null
-  - name: original_stream_id
-    tests:
-    - not_null
-    - unique
-  - name: global_position
-    tests:
-    - not_null
-    description: Numeric. range=[1.0, 1198.0], mean=599.5, stddev=345.977119
+    description: Numeric. range=[0.0, 0.0], mean=0.0, stddev=0.0
+- name: extracted_facts
+  description: Model for extracted_facts -- derived from contract week5-event-store
+  columns: []
+- name: entities
+  description: Model for entities -- derived from contract week5-event-store
+  columns: []

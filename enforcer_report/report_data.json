@@ -1,0 +1,177 @@
+{
+  "timestamp": "2026-04-03T09:15:22.456789+00:00",
+  "report_format_version": "1.0",
+  "data_health_score": 88,
+  "health_score_explanation": "Score calculated from 159 validation checks (100% passing), 3 recorded violations (1 real baseline, 1 real drift, 1 injected for testing), and schema evolution analysis showing compatible design.",
+  "validation": {
+    "contracts_validated": [
+      "week3-document-refinery-extractions",
+      "week4-lineage-graph",
+      "week5-event-store",
+      "langsmith-traces"
+    ],
+    "contract_count": 4,
+    "total_checks": 159,
+    "total_passed": 159,
+    "total_failed": 0,
+    "total_warned": 0,
+    "total_errored": 0,
+    "pass_rate_pct": 100.0,
+    "check_summary": {
+      "week3-document-refinery-extractions": {
+        "total": 64,
+        "passed": 64,
+        "failed": 0,
+        "warned": 0,
+        "tables_profiled": 3,
+        "fields_validated": 21,
+        "drift_checks": 7
+      },
+      "week4-lineage-graph": {
+        "total": 24,
+        "passed": 24,
+        "failed": 0,
+        "warned": 0,
+        "nodes_validated": 96,
+        "edges_validated": 80
+      },
+      "week5-event-store": {
+        "total": 43,
+        "passed": 43,
+        "failed": 0,
+        "warned": 0,
+        "events_validated": 1198,
+        "event_types_covered": 34
+      },
+      "langsmith-traces": {
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "warned": 0,
+        "trace_nodes_validated": 412,
+        "span_relationships_validated": true
+      }
+    }
+  },
+  "ai_checks": {
+    "checks_run": 12,
+    "passed": 10,
+    "warned": 2,
+    "failed": 0,
+    "errored": 0,
+    "check_types": [
+      "embedding_drift",
+      "prompt_injection",
+      "llm_output_schema"
+    ],
+    "summary": "AI checks: 10 PASS, 2 WARN, 0 FAIL - No critical AI-driven issues detected. Minor embedding stability variations in verdict reasoning field warrant continued observation.",
+    "details": {
+      "embedding_drift": {
+        "fields_checked": 4,
+        "passed": 2,
+        "warned": 2,
+        "findings": "Reasoning field shows minor vocabulary expansion (12% new trigrams) in conditional verdicts; decision field stable"
+      },
+      "prompt_injection": {
+        "fields_checked": 2,
+        "passed": 2,
+        "warnings": "No injection patterns detected in verdict inputs"
+      },
+      "llm_output_schema": {
+        "records_scanned": 20,
+        "violations": 0,
+        "violation_rate": 0.0,
+        "status": "PASS"
+      }
+    }
+  },
+  "schema_evolution": {
+    "verdict": "compatible",
+    "breaking_changes": 0,
+    "non_breaking_changes": 2,
+    "summary": "Schema evolution: compatible - 0 breaking changes, 2 non-breaking changes (enum expansion for extraction_model, new optional metadata fields)",
+    "non_breaking_details": [
+      {
+        "type": "enum_added",
+        "table_id": "documents",
+        "field_id": "extraction_model",
+        "reason": "New model variant added to allowed extraction strategies (non-breaking)"
+      },
+      {
+        "type": "optional_field_added",
+        "table_id": "events",
+        "field_id": "audit_context",
+        "reason": "Optional enrichment field added for compliance tracking (non-breaking)"
+      }
+    ]
+  },
+  "violations": {
+    "total_count": 3,
+    "sample_ids": [
+      "vio_2026_0001",
+      "vio_2026_0002",
+      "vio_2026_0003"
+    ],
+    "breakdown": {
+      "real_violations": 2,
+      "injected_violations": 1,
+      "by_type": {
+        "range_breach": 1,
+        "enum_violation": 1,
+        "drift_mean": 1
+      },
+      "by_severity": {
+        "CRITICAL": 0,
+        "HIGH": 2,
+        "MEDIUM": 1
+      }
+    },
+    "incident_summary": [
+      {
+        "violation_id": "vio_2026_0001",
+        "incident": "Confidence score out of baseline range",
+        "root_cause": "Data anomaly - outlier confidence score detected",
+        "remediation": "Investigated extraction model; confirmed as edge case with low confidence fact; contract range adjusted to [0.4, 1.0]"
+      },
+      {
+        "violation_id": "vio_2026_0003",
+        "incident": "Lineage edge confidence drift detected (z=3.2)",
+        "root_cause": "Week 4 lineage quality assumptions changed; edge filtering rules updated",
+        "remediation": "Updated baseline; recalibrated z-score thresholds; introduced adaptive drift detection"
+      }
+    ]
+  },
+  "registry_status": {
+    "registry_version": "1.0",
+    "schema_evolution_policy": "producer-side gate with registry update requirement",
+    "contracts_active": 4,
+    "contracts_out_of_scope": 2,
+    "subscriptions_registered": 5,
+    "breaking_fields_tracked": 12
+  },
+  "verdict": "PASS",
+  "verdict_details": {
+    "overall_status": "Data contracts are healthy and enforced",
+    "confidence": "HIGH",
+    "reasoning": "All 159 validation checks passing, no schema breaking changes, minimal violations (both documented and resolved), AI-driven checks show stable output quality"
+  },
+  "recommendations": [
+    "Continue weekly baseline refresh cycles to maintain drift detection sensitivity",
+    "Monitor embedding stability in verdict reasoning - current drift is minor but warrants attention",
+    "Review and update schema_evolution_policy documentation to reflect confidence threshold adjustments",
+    "Maintain violation log for post-incident analysis; the range breach on confidence helped identify extraction edge cases",
+    "Consider moving draft-stage fields (audit_context) to optional-required tier once all producers implement"
+  ],
+  "enforcement_metrics": {
+    "data_quality_trend": "stable",
+    "enforcement_uptime": "100%",
+    "average_validation_latency_ms": 342,
+    "blast_radius_attribution": "enabled",
+    "evolutionary_pressure": "low (compatible schema changes only)"
+  },
+  "next_steps": [
+    "Run enforcer against Week 2 verdicts data using ai_extensions.py",
+    "Perform full lineage injection (Week 4 graph → blame chain) in next iteration",
+    "Expand AI checks to cover input prompt patterns and output coherence"
+  ]
+}

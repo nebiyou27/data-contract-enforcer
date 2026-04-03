@@ -19,26 +19,26 @@ models:
   - name: processing_time_ms
     tests:
     - not_null
-    description: Numeric. range=[116.0, 1188768.0], mean=226028.789474, stddev=298932.137208
+    description: Numeric. range=[116.0, 1188768.0], mean=230664.131579, stddev=296495.359348
   - name: token_count_input
     tests:
     - not_null
-    description: Numeric. range=[90.0, 127271.0], mean=25873.605263, stddev=31440.689823
+    description: Numeric. range=[90.0, 127271.0], mean=25607.605263, stddev=31456.279343
   - name: token_count_output
     tests:
     - not_null
-    description: Numeric. range=[90.0, 127271.0], mean=25873.605263, stddev=31440.689823
+    description: Numeric. range=[90.0, 127271.0], mean=25607.605263, stddev=31456.279343
   - name: extracted_at
     tests:
     - not_null
   - name: fact_count
     tests:
     - not_null
-    description: Numeric. range=[15.0, 11629.0], mean=1178.526316, stddev=2468.596994
+    description: Numeric. range=[15.0, 11629.0], mean=1181.289474, stddev=2471.595096
   - name: entity_count
     tests:
     - not_null
-    description: Numeric. range=[0.0, 227.0], mean=66.131579, stddev=73.1493
+    description: Numeric. range=[0.0, 227.0], mean=64.763158, stddev=72.229901
 - name: extracted_facts
   description: Model for extracted_facts -- derived from contract week3-document-refinery-extractions
   columns:
@@ -56,11 +56,11 @@ models:
   - name: confidence
     tests:
     - not_null
-    description: Numeric. range=[0.676, 1.0], mean=0.966817, stddev=0.041316
+    description: Numeric. range=[0.676, 1.0], mean=0.966659, stddev=0.041396
   - name: page_ref
     tests:
     - not_null
-    description: Numeric. range=[1.0, 155.0], mean=39.659901, stddev=27.460381
+    description: Numeric. range=[1.0, 155.0], mean=39.685847, stddev=27.433764
   - name: source_excerpt
     tests:
     - not_null

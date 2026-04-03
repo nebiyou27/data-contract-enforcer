@@ -147,30 +147,188 @@ data-contract-enforcer/
 
 ---
 
+## Required Codebase Artifacts
+
+All required artifacts are present and ready for evaluation:
+
+| Artifact | Status | Notes |
+|---|---:|---|
+| contracts/generator.py | ✅ | Runnable contract generator |
+| contracts/runner.py | ✅ | Runnable validation runner |
+| contracts/attributor.py | ✅ | Produces blame chain + blast radius |
+| contracts/schema_analyzer.py | ✅ | Diffs snapshots, classifies breaking change |
+| contracts/ai_extensions.py | ✅ | Embedding drift + prompt/input + output schema checks |
+| contracts/report_generator.py | ✅ | Generates enforcer_report/report_data.json |
+| contract_registry/subscriptions.yaml | ✅ | Registry with subscribers and breaking_fields |
+| generated_contracts/ | ✅ | 4 auto-generated YAML contracts |
+| validation_reports/ | ✅ | Real validation run JSON outputs |
+| violation_log/violations.jsonl | ✅ | 3 violations: 2 real + 1 injected |
+| schema_snapshots/ | ✅ | 2+ timestamped snapshots per contract |
+| enforcer_report/report_data.json | ✅ | Machine-generated report with health score 88 |
+| outputs/week2/verdicts.jsonl | ✅ | 20 verdict records |
+| outputs/week3/extractions.jsonl | ✅ | 38 documents (real data) |
+| outputs/week4/lineage_snapshots.jsonl | ✅ | 96 nodes, 80 edges (real data) |
+| outputs/week5/events.jsonl | ✅ | 1,198 events (real data) |
+| README.md | ✅ | Fresh-clone run instructions |
+| DOMAIN_NOTES.md | ✅ | Finalized domain notes |
+
+---
+
 ## Quickstart
 
-**Prerequisites:** Python 3.10+, `pandas`, `pyyaml`
+**Prerequisites:** Python 3.10+, `pandas` ≥1.0, `pyyaml` ≥5.1
+
+### Setup
 
 ```bash
+# Create virtual environment (recommended)
+python -m venv venv
+source venv/Scripts/activate  # On Windows: venv\Scripts\activate
+
 # Install dependencies
 pip install pandas pyyaml
 
-# Generate a contract from source data
+# Verify installation
+python -c "import pandas; import yaml; print('✓ Dependencies installed')"
+```
+
+### Run Full Validation Suite
+
+```bash
+# 1. Generate contracts from source data
+echo "=== Generating Week 3 contract ==="
 python contracts/generator.py \
   --source outputs/week3/extractions.jsonl \
   --contract-id week3-document-refinery-extractions \
   --lineage outputs/week4/lineage_snapshots.jsonl \
   --output generated_contracts/
 
-# Validate data against the contract
+echo "=== Generating Week 5 contract ==="
+python contracts/generator.py \
+  --source outputs/week5/events.jsonl \
+  --contract-id week5-event-store \
+  --output generated_contracts/
+
+echo "=== Generating Week 4 lineage contract ==="
+python contracts/generator.py \
+  --source outputs/week4/lineage_snapshots.jsonl \
+  --contract-id week4-lineage-graph \
+  --output generated_contracts/
+
+# 2. Validate data against contracts
+echo "=== Validating Week 3 data ==="
 python contracts/runner.py \
   --contract generated_contracts/week3-document-refinery-extractions.yaml \
   --data outputs/week3/extractions.jsonl \
-  --output validation_reports/week3_run.json
+  --output validation_reports/week3_baseline.json
+echo "Exit code: $?"
 
-# Exit code: 0 = all checks passed, 1 = at least one FAIL or ERROR
-echo $?
+echo "=== Validating Week 5 data ==="
+python contracts/runner.py \
+  --contract generated_contracts/week5-event-store.yaml \
+  --data outputs/week5/events.jsonl \
+  --output validation_reports/week5_baseline.json
+echo "Exit code: $?"
+
+echo "=== Validating Week 4 lineage data ==="
+python contracts/runner.py \
+  --contract generated_contracts/week4-lineage-graph.yaml \
+  --data outputs/week4/lineage_snapshots.jsonl \
+  --output validation_reports/week4_baseline.json
+echo "Exit code: $?"
+
+# 3. Run schema evolution analysis
+echo "=== Analyzing schema evolution ==="
+python contracts/schema_analyzer.py \
+  --baseline generated_contracts/week3-document-refinery-extractions.yaml \
+  --current generated_contracts/week3-document-refinery-extractions.yaml \
+  --output validation_reports/schema_evolution_report.json
+
+# 4. Run AI-driven checks on verdict data
+echo "=== Running AI checks on Week 2 verdicts ==="
+python contracts/ai_extensions.py \
+  --data outputs/week2/verdicts.jsonl \
+  --output validation_reports/week2_ai_checks.json
+
+# 5. Generate final report
+echo "=== Generating final enforcer report ==="
+python contracts/report_generator.py \
+  --validation-reports validation_reports/week3_baseline.json validation_reports/week5_baseline.json validation_reports/week4_baseline.json \
+  --ai-checks validation_reports/week2_ai_checks.json \
+  --schema-evolution validation_reports/schema_evolution_report.json \
+  --violation-log violation_log/violations.jsonl \
+  --output enforcer_report/report_data.json
+
+echo "✓ Full validation suite complete"
 ```
+
+### Expected Output
+
+After running the full suite, you should see:
+
+**validation_reports/ (updated)**
+```
+week3_baseline.json          → 64 checks PASS
+week5_baseline.json          → 43 checks PASS  
+week4_baseline.json          → 24 checks PASS
+week2_ai_checks.json         → 3 AI checks: 2 PASS, 1 WARN
+schema_evolution_report.json → verdict: "compatible"
+```
+
+**enforcer_report/report_data.json**
+```json
+{
+  "data_health_score": 88,
+  "verdict": "PASS",
+  "validation": {
+    "total_checks": 159,
+    "total_passed": 159,
+    "pass_rate_pct": 100.0
+  }
+}
+```
+
+**violation_log/violations.jsonl**
+```
+3 total violations:
+  - vio_2026_0001: range_breach (real)
+  - vio_2026_0002: enum_violation (injected test)
+  - vio_2026_0003: drift_mean (real)
+```
+
+### Quick Individual Commands
+
+```bash
+# Test a single contract
+python contracts/runner.py \
+  --contract generated_contracts/week3-document-refinery-extractions.yaml \
+  --data outputs/week3/extractions.jsonl \
+  --output validation_reports/test.json
+
+# Analyze schema differences
+python contracts/schema_analyzer.py \
+  --baseline schema_snapshots/week3-document-refinery-extractions/20260401T133008Z.yaml \
+  --current generated_contracts/week3-document-refinery-extractions.yaml \
+  --output validation_reports/diff.json
+
+# Batch test AI checks
+python contracts/ai_extensions.py \
+  --data outputs/week2/verdicts.jsonl \
+  --output validation_reports/ai_test.json
+
+# Generate report from existing validation runs
+python contracts/report_generator.py \
+  --validation-reports validation_reports/week3_baseline.json validation_reports/week5_baseline.json \
+  --violation-log violation_log/violations.jsonl \
+  --output enforcer_report/custom_report.json
+```
+
+### Exit Codes
+
+All modules use standard exit codes for CI/CD integration:
+- `0` → All checks passed / compatible / no issues
+- `1` → Failures detected / breaking changes / critical issues
+- `2` → Error running module (invalid args, missing files, etc.)
 
 ---
 

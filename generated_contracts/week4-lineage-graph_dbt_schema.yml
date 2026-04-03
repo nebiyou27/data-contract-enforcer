@@ -1,40 +1,29 @@
 version: 2
 models:
-- name: lineage_nodes
-  description: Model for lineage_nodes -- derived from contract week4-lineage-graph
+- name: documents
+  description: Model for documents -- derived from contract week4-lineage-graph
   columns:
-  - name: node_id
+  - name: doc_id
     tests:
-    - not_null
     - unique
-  - name: type
+  - name: source_path
+  - name: source_hash
+  - name: extraction_model
+  - name: processing_time_ms
+  - name: token_count_input
+  - name: token_count_output
+  - name: extracted_at
+  - name: fact_count
     tests:
     - not_null
-  - name: label
+    description: Numeric. range=[0.0, 0.0], mean=0.0, stddev=nan
+  - name: entity_count
     tests:
     - not_null
-  - name: path
-    tests:
-    - not_null
-  - name: language
-    tests:
-    - not_null
-  - name: last_modified
-    tests:
-    - not_null
-- name: lineage_edges
-  description: Model for lineage_edges -- derived from contract week4-lineage-graph
-  columns:
-  - name: source
-    tests:
-    - not_null
-  - name: target
-    tests:
-    - not_null
-  - name: relationship
-    tests:
-    - not_null
-  - name: confidence
-    tests:
-    - not_null
-    description: Numeric. range=[0.7, 0.95], mean=0.825625, stddev=0.093793
+    description: Numeric. range=[0.0, 0.0], mean=0.0, stddev=nan
+- name: extracted_facts
+  description: Model for extracted_facts -- derived from contract week4-lineage-graph
+  columns: []
+- name: entities
+  description: Model for entities -- derived from contract week4-lineage-graph
+  columns: []
