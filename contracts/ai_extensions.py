@@ -26,6 +26,7 @@ import argparse
 import json
 import logging
 import math
+import re
 import sys
 import uuid
 from collections import Counter
@@ -233,6 +234,32 @@ def check_embedding_drift(
 
 
 # ---------------------------------------------------------------------------
+# Sensitive-field scrubber
+# ---------------------------------------------------------------------------
+
+_SENSITIVE_FIELD_PATTERNS = re.compile(
+    r"(api[_-]?key|apikey|authorization|auth[_-]?token|token|secret|password|passwd|credential)",
+    re.IGNORECASE,
+)
+
+
+def _scrub_record(record: dict) -> dict:
+    """Return a shallow copy of *record* with sensitive field values redacted.
+
+    Any top-level key whose name matches a known-sensitive pattern is replaced
+    with the string ``"<redacted>"`` so API keys and auth headers are never
+    written verbatim to the quarantine file.
+    """
+    scrubbed: dict = {}
+    for key, value in record.items():
+        if _SENSITIVE_FIELD_PATTERNS.search(str(key)):
+            scrubbed[key] = "<redacted>"
+        else:
+            scrubbed[key] = value
+    return scrubbed
+
+
+# ---------------------------------------------------------------------------
 # Extension 2: Prompt input schema validation (JSON Schema enforcement)
 # ---------------------------------------------------------------------------
 
@@ -287,7 +314,7 @@ def check_prompt_input_schema(
             violations += 1
             quarantine_records.append(
                 {
-                    "record": record,
+                    "record": _scrub_record(record),
                     "schema_errors": errors,
                     "quarantined_at": datetime.now(timezone.utc).isoformat(),
                 }
