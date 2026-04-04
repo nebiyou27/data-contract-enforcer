@@ -57,6 +57,7 @@ contracts-ai-checks   = "contracts.ai_extensions:main"
 contracts-report      = "contracts.report_generator:main"
 contracts-schema-diff = "contracts.schema_analyzer:main"
 contracts-baseline    = "contracts.baseline_manager:main"
+contracts-evolution-gate = "contracts.evolution_gate:main"
 
 # ---------------------------------------------------------------------------
 # Packaging — include only the contracts package; exclude venv and tests
