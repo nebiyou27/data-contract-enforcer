@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import sys
 import uuid
@@ -31,6 +32,16 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+try:
+    from contracts.log_config import configure_logging
+except ModuleNotFoundError:
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+    from contracts.log_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -517,6 +528,7 @@ def main() -> int:
     )
 
     args = parser.parse_args()
+    configure_logging()
 
     try:
         report = run_all_extensions(args.extractions, args.verdicts)
@@ -526,16 +538,14 @@ def main() -> int:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, "w", encoding="utf-8") as fh:
                 json.dump(report, fh, indent=2, ensure_ascii=False)
-            print(f"Report written to {output_path}")
+            logger.info("Report written to %s", output_path)
 
         print(json.dumps(report, indent=2))
 
         return 1 if report["summary"]["failed"] > 0 else 0
 
     except Exception as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
+        logger.error("Fatal error: %s", exc, exc_info=True)
         return 2
 
 

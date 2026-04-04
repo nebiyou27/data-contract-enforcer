@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
 import re
 import sys
 import uuid
@@ -59,6 +60,7 @@ try:
         load_lineage_graph,
         load_registry,
     )
+    from contracts.log_config import configure_logging
 except ModuleNotFoundError:
     # Direct script invocation: add project root to path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -80,6 +82,7 @@ except ModuleNotFoundError:
         load_lineage_graph,
         load_registry,
     )
+    from contracts.log_config import configure_logging
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -98,6 +101,8 @@ ISO8601_RE = re.compile(
 
 BASELINES_PATH = Path("schema_snapshots") / "baselines.json"
 VIOLATION_LOG_PATH = Path("violation_log") / "violations.jsonl"
+
+logger = logging.getLogger(__name__)
 
 # Map Bitol logical types to acceptable pandas dtypes
 TYPE_MAP: dict[str, set[str]] = {
@@ -1108,9 +1113,10 @@ def main(argv: list[str] | None = None) -> int:
 
     now = datetime.now(timezone.utc)
     report_id = str(uuid.uuid4())
+    configure_logging(run_id=report_id)
 
     # Load contract
-    print(f"[runner] Loading contract: {args.contract}")
+    logger.info("Loading contract: %s", args.contract)
     with open(args.contract, "r", encoding="utf-8") as fh:
         contract = yaml.safe_load(fh)
 
@@ -1120,9 +1126,9 @@ def main(argv: list[str] | None = None) -> int:
     registry = load_registry(registry_path)
 
     # Load + flatten data
-    print(f"[runner] Loading data: {args.data}")
+    logger.info("Loading data: %s", args.data)
     records = load_jsonl(args.data)
-    print(f"  {len(records)} source documents loaded")
+    logger.info("%d source documents loaded", len(records))
 
     snapshot_id = sha256_file(args.data)
 
@@ -1141,18 +1147,18 @@ def main(argv: list[str] | None = None) -> int:
     lineage_graph = load_lineage_graph(lineage_input)
 
     for name, df in frames.items():
-        print(f"  {name}: {len(df)} rows x {len(df.columns)} cols")
+        logger.debug("%s: %d rows x %d cols", name, len(df), len(df.columns))
 
     # Load baselines
     baselines = load_baselines()
     is_first_run = not baselines
     if is_first_run:
-        print("[runner] No baselines found -- this run will create the initial baseline")
+        logger.info("No baselines found -- this run will create the initial baseline")
     else:
-        print(f"[runner] Loaded baselines from {BASELINES_PATH}")
+        logger.info("Loaded baselines from %s", BASELINES_PATH)
 
     # Run all checks
-    print("[runner] Running checks ...")
+    logger.info("Running checks ...")
     all_results: list[dict] = []
     new_baselines: dict[str, dict] = {}
 
@@ -1178,7 +1184,10 @@ def main(argv: list[str] | None = None) -> int:
     total = len(all_results)
     schema_summary = summarize_schema_evolution(all_results)
 
-    print(f"  Total: {total}  PASS: {passed}  FAIL: {failed}  WARN: {warned}  ERROR: {errored}")
+    logger.info(
+        "Checks complete: total=%d pass=%d fail=%d warn=%d error=%d",
+        total, passed, failed, warned, errored,
+    )
     if schema_summary["missing_columns"] or schema_summary["new_columns"]:
         missing_text = ", ".join(
             f"{item['table']}.{item['column']}" for item in schema_summary["missing_columns"]
@@ -1186,8 +1195,8 @@ def main(argv: list[str] | None = None) -> int:
         new_text = ", ".join(
             f"{item['table']}.{item['column']}" for item in schema_summary["new_columns"]
         ) or "none"
-        print(f"  Schema missing: {missing_text}")
-        print(f"  Schema new: {new_text}")
+        logger.warning("Schema missing columns: %s", missing_text)
+        logger.info("Schema new columns: %s", new_text)
 
     violation_rows = [
         attribute_violation(result, contract_id, registry, lineage_graph, snapshot_id)
@@ -1207,7 +1216,7 @@ def main(argv: list[str] | None = None) -> int:
         fh.write(json.dumps(run_header, ensure_ascii=False) + "\n")
         for row in violation_rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-    print(f"[runner] Violation log appended: {VIOLATION_LOG_PATH} ({len(violation_rows)} entries)")
+    logger.info("Violation log appended: %s (%d entries)", VIOLATION_LOG_PATH, len(violation_rows))
 
     # Build report
     report = {
@@ -1231,7 +1240,7 @@ def main(argv: list[str] | None = None) -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2, ensure_ascii=False)
-    print(f"[runner] Report written: {out_path}")
+    logger.info("Report written: %s", out_path)
 
     # Save baselines:
     #   - first run: always write (no golden baseline exists yet)
@@ -1239,14 +1248,14 @@ def main(argv: list[str] | None = None) -> int:
     #     so a regression cannot silently clear its own evidence
     if is_first_run and new_baselines:
         save_baselines(new_baselines)
-        print(f"[runner] Initial baselines saved to {BASELINES_PATH}")
+        logger.info("Initial baselines saved to %s", BASELINES_PATH)
     elif new_baselines and args.promote_baselines:
         baselines.update(new_baselines)
         save_baselines(baselines)
-        print(f"[runner] Baselines promoted to {BASELINES_PATH}")
+        logger.info("Baselines promoted to %s", BASELINES_PATH)
     elif new_baselines:
-        print(
-            f"[runner] Baselines NOT updated (pass --promote-baselines to overwrite {BASELINES_PATH})"
+        logger.info(
+            "Baselines NOT updated (pass --promote-baselines to overwrite %s)", BASELINES_PATH
         )
 
     # Exit code depends on the requested operating mode.
@@ -1268,7 +1277,7 @@ def main(argv: list[str] | None = None) -> int:
         exit_code = 1 if critical_fails > 0 else 0
     else:  # ENFORCE
         exit_code = 1 if (high_or_critical_fails > 0 or errored > 0) else 0
-    print(f"[runner] Done. Exit code: {exit_code}")
+    logger.info("Done. Exit code: %d", exit_code)
     return exit_code
 
 

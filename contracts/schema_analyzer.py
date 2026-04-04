@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,12 +37,16 @@ import yaml
 
 try:
     from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
+    from contracts.log_config import configure_logging
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
+    from contracts.log_config import configure_logging
 
 
 SNAPSHOTS_DIR = Path("schema_snapshots")
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -566,6 +571,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+    configure_logging()
 
     # Load the two snapshots
     baseline_path_str: str | None = None
@@ -585,7 +591,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("Provide --contract-id or both --baseline and --current.")
             return 2
     except (FileNotFoundError, ValueError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        logger.error("%s", exc)
         return 2
 
     # Load registry for consumer analysis
@@ -617,7 +623,7 @@ def main(argv: list[str] | None = None) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8") as fh:
             json.dump(report, fh, indent=2, ensure_ascii=False)
-        print(f"Report written to {out}")
+        logger.info("Report written to %s", out)
 
     print(json.dumps(report, indent=2))
     return 0 if diff["verdict"] == "compatible" else 1

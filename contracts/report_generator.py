@@ -25,12 +25,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+try:
+    from contracts.log_config import configure_logging
+except ModuleNotFoundError:
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+    from contracts.log_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 
 def load_validation_report(path: Path) -> dict[str, Any]:
@@ -387,7 +398,8 @@ def main():
     )
     
     args = parser.parse_args()
-    
+    configure_logging()
+
     try:
         # Load validation reports
         validation_reports = []
@@ -398,7 +410,7 @@ def main():
                 validation_reports.append(report)
         
         if not validation_reports:
-            print("ERROR: No validation reports found", file=sys.stderr)
+            logger.error("No validation reports found")
             sys.exit(1)
         
         # Load AI checks if available
@@ -427,15 +439,13 @@ def main():
         with open(output_path, "w", encoding="utf-8") as fh:
             json.dump(report, fh, indent=2)
         
-        print(f"Report written to {output_path}")
+        logger.info("Report written to %s", output_path)
         print(json.dumps(report, indent=2))
-        
+
         sys.exit(0)
-    
+
     except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
+        logger.error("Fatal error: %s", e, exc_info=True)
         sys.exit(2)
 
 

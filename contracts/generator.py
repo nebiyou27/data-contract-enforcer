@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,9 +31,11 @@ import yaml
 
 try:
     from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
+    from contracts.log_config import configure_logging
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
+    from contracts.log_config import configure_logging
 
 try:
     import anthropic as _anthropic
@@ -41,6 +44,8 @@ except ImportError:
     _ANTHROPIC_AVAILABLE = False
 
 BASELINES_PATH = Path("schema_snapshots") / "baselines.json"
+
+logger = logging.getLogger(__name__)
 
 
 # --- Stage 1: Load + Flatten -------------------------------------------------
@@ -377,7 +382,7 @@ def annotate_ambiguous_columns_with_llm(
         raw = message.content[0].text.strip()
         return json.loads(raw)
     except Exception as exc:
-        print(f"  [generator] LLM annotation failed: {exc} — using fallback descriptions")
+        logger.warning("LLM annotation failed: %s — using fallback descriptions", exc)
         return {
             p["name"]: (
                 f"[LLM annotation failed] High-cardinality string column "
@@ -666,7 +671,7 @@ def load_lineage(path: str | None) -> list[dict]:
         return []
     p = Path(path)
     if not p.exists():
-        print(f"[generator] Warning: lineage file not found: {path} -- skipping")
+        logger.warning("Lineage file not found: %s -- skipping", path)
         return []
     records = []
     with open(p, "r", encoding="utf-8") as fh:
@@ -922,39 +927,37 @@ def main(argv: list[str] | None = None) -> int:
         "--output", required=True, help="Output directory for generated contracts"
     )
     args = parser.parse_args(argv)
+    configure_logging()
 
     # -- Stage 1 --------------------------------------------------------------
-    print(f"[generator] Stage 1 -- Loading {args.source} ...")
+    logger.info("Stage 1 -- Loading %s ...", args.source)
     records = load_jsonl(args.source)
-    print(f"  Loaded {len(records)} source documents")
+    logger.info("Loaded %d source documents", len(records))
 
     if "langsmith" in args.contract_id.lower():
         df_trace = flatten_trace_nodes(records)
-        print(
-            f"  Flattened -> "
-            f"trace_nodes={len(df_trace)}rx{len(df_trace.columns)}c"
-        )
+        logger.info("Flattened -> trace_nodes=%dr x %dc", len(df_trace), len(df_trace.columns))
 
         # -- Stage 2 ----------------------------------------------------------
-        print("[generator] Stage 2 -- Profiling columns ...")
+        logger.info("Stage 2 -- Profiling columns ...")
         profiles_trace = profile_dataframe(df_trace)
-        print(f"  {len(profiles_trace)} fields profiled across 1 table")
+        logger.info("%d fields profiled across 1 table", len(profiles_trace))
 
         # -- Stage 3 ----------------------------------------------------------
-        print("[generator] Stage 3 -- Translating profiles to Bitol clauses ...")
+        logger.info("Stage 3 -- Translating profiles to Bitol clauses ...")
         tables = {"trace_nodes": profiles_trace}
         clause_count = sum(len(p) for p in tables.values())
         rule_preview = sum(len(build_quality_rules(t, p)) for t, p in tables.items())
-        print(f"  {clause_count} schema clauses, ~{rule_preview} quality rules")
+        logger.info("%d schema clauses, ~%d quality rules", clause_count, rule_preview)
 
         # LLM annotation for ambiguous columns
-        print("[generator] Stage 3a -- LLM annotation for ambiguous columns ...")
+        logger.info("Stage 3a -- LLM annotation for ambiguous columns ...")
         for tname, profiles in tables.items():
             annotations = annotate_ambiguous_columns_with_llm(profiles, tname, args.contract_id)
             for p in profiles:
                 if p["name"] in annotations:
                     p["llm_description"] = annotations[p["name"]]
-                    print(f"  Annotated: {tname}.{p['name']}")
+                    logger.debug("Annotated: %s.%s", tname, p["name"])
 
         row_counts = {"trace_nodes": len(df_trace)}
     else:
@@ -962,45 +965,44 @@ def main(argv: list[str] | None = None) -> int:
         df_facts = flatten_facts(records)
         df_entities = flatten_entities(records)
 
-        print(
-            f"  Flattened -> "
-            f"documents={len(df_docs)}rx{len(df_docs.columns)}c  "
-            f"facts={len(df_facts)}rx{len(df_facts.columns)}c  "
-            f"entities={len(df_entities)}rx{len(df_entities.columns)}c"
+        logger.info(
+            "Flattened -> documents=%dr x %dc  facts=%dr x %dc  entities=%dr x %dc",
+            len(df_docs), len(df_docs.columns),
+            len(df_facts), len(df_facts.columns),
+            len(df_entities), len(df_entities.columns),
         )
 
         # -- Stage 2 ----------------------------------------------------------
-        print("[generator] Stage 2 -- Profiling columns ...")
+        logger.info("Stage 2 -- Profiling columns ...")
         profiles_docs = profile_dataframe(df_docs)
         profiles_facts = profile_dataframe(df_facts)
         profiles_entities = profile_dataframe(df_entities)
 
         total_fields = len(profiles_docs) + len(profiles_facts) + len(profiles_entities)
-        print(f"  {total_fields} fields profiled across 3 tables")
+        logger.info("%d fields profiled across 3 tables", total_fields)
 
         # -- Stage 3 ----------------------------------------------------------
-        print("[generator] Stage 3 -- Translating profiles to Bitol clauses ...")
+        logger.info("Stage 3 -- Translating profiles to Bitol clauses ...")
         tables = {
             "documents": profiles_docs,
             "extracted_facts": profiles_facts,
             "entities": profiles_entities,
         }
 
-        # Count how many clauses will be generated for a progress indicator
         clause_count = sum(len(p) for p in tables.values())
         rule_preview = sum(
             len(build_quality_rules(t, p)) for t, p in tables.items()
         )
-        print(f"  {clause_count} schema clauses, ~{rule_preview} quality rules")
+        logger.info("%d schema clauses, ~%d quality rules", clause_count, rule_preview)
 
         # LLM annotation for ambiguous columns
-        print("[generator] Stage 3a -- LLM annotation for ambiguous columns ...")
+        logger.info("Stage 3a -- LLM annotation for ambiguous columns ...")
         for tname, profiles in tables.items():
             annotations = annotate_ambiguous_columns_with_llm(profiles, tname, args.contract_id)
             for p in profiles:
                 if p["name"] in annotations:
                     p["llm_description"] = annotations[p["name"]]
-                    print(f"  Annotated: {tname}.{p['name']}")
+                    logger.debug("Annotated: %s.%s", tname, p["name"])
 
         row_counts = {
             "documents": len(df_docs),
@@ -1009,14 +1011,17 @@ def main(argv: list[str] | None = None) -> int:
         }
 
     # -- Stage 4 --------------------------------------------------------------
-    print("[generator] Stage 4 -- Injecting registry + lineage + writing outputs ...")
+    logger.info("Stage 4 -- Injecting registry + lineage + writing outputs ...")
     registry = load_registry(args.registry)
-    print(f"  Loaded {len(registry['subscriptions'])} registry subscriptions from {registry['path']}")
+    logger.info(
+        "Loaded %d registry subscriptions from %s",
+        len(registry["subscriptions"]), registry["path"],
+    )
     lineage_records = load_lineage(args.lineage)
     if lineage_records:
-        print(f"  Loaded {len(lineage_records)} lineage records from {args.lineage}")
+        logger.info("Loaded %d lineage records from %s", len(lineage_records), args.lineage)
     else:
-        print("  No lineage records (will use source as sole input port)")
+        logger.info("No lineage records (will use source as sole input port)")
 
     contract = build_contract(
         contract_id=args.contract_id,
@@ -1033,13 +1038,13 @@ def main(argv: list[str] | None = None) -> int:
     # Write main contract
     contract_path = output_dir / f"{args.contract_id}.yaml"
     _write_yaml(contract, contract_path)
-    print(f"  Contract  -> {contract_path}")
+    logger.info("Contract  -> %s", contract_path)
 
     # Write dbt schema
     dbt_schema = build_dbt_schema(args.contract_id, tables)
     dbt_path = output_dir / f"{args.contract_id}_dbt_schema.yml"
     _write_yaml(dbt_schema, dbt_path)
-    print(f"  dbt schema -> {dbt_path}")
+    logger.info("dbt schema -> %s", dbt_path)
 
     # Write timestamped snapshot
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -1047,11 +1052,11 @@ def main(argv: list[str] | None = None) -> int:
         Path("schema_snapshots") / args.contract_id / f"{timestamp}.yaml"
     )
     _write_yaml(contract, snapshot_path)
-    print(f"  Snapshot  -> {snapshot_path}")
+    logger.info("Snapshot  -> %s", snapshot_path)
 
     # Write statistical baselines (mean, stddev per numeric column)
     write_baselines(args.contract_id, tables)
-    print(f"  Baselines -> {BASELINES_PATH}")
+    logger.info("Baselines -> %s", BASELINES_PATH)
 
     # Final summary
     actual_rules = len(contract["quality"]["rules"])
@@ -1060,13 +1065,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     lineage_ports = len(contract["lineage"]["inputPorts"])
 
-    print()
-    print("[generator] Complete.")
-    print(f"  Schema clauses : {actual_clauses}")
-    print(f"  Quality rules  : {actual_rules}")
-    print(f"  Lineage ports  : {lineage_ports}")
-    print(f"  Contract ID    : {args.contract_id}")
-    print(f"  apiVersion     : v3.0.0")
+    logger.info(
+        "Complete. schema_clauses=%d quality_rules=%d lineage_ports=%d contract_id=%s apiVersion=v3.0.0",
+        actual_clauses, actual_rules, lineage_ports, args.contract_id,
+    )
 
     return 0
 
