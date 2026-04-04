@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "data-contract-enforcer"
+version = "0.1.0"
+description = "Bitol data-contract validation and generation toolchain"
+requires-python = ">=3.10"
+
+# Core runtime dependencies — the minimum versions tested in this project.
+# For a reproducible install pin to exact versions with `pip freeze > requirements.txt`
+# or use `uv lock`.
+dependencies = [
+    "pandas>=2.0.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+# LLM annotation (generator Stage 3a) — install with: pip install -e ".[llm]"
+llm = [
+    "anthropic>=0.87.0",
+]
+
+# Development tooling
+dev = [
+    "pytest>=9.0",
+]
+
+# Convenience group: everything
+all = [
+    "data-contract-enforcer[llm,dev]",
+]
+
+# ---------------------------------------------------------------------------
+# CLI entry points
+# ---------------------------------------------------------------------------
+# After `pip install -e .` these commands become available on $PATH:
+#   contracts-run       — validate data against a contract
+#   contracts-generate  — generate a contract from source data
+#   contracts-ai-checks — run AI-driven extension checks
+#   contracts-report    — aggregate all runs into an enforcer report
+#   contracts-schema-diff — diff two schema snapshots
+
+[project.scripts]
+contracts-run         = "contracts.runner:main"
+contracts-generate    = "contracts.generator:main"
+contracts-ai-checks   = "contracts.ai_extensions:main"
+contracts-report      = "contracts.report_generator:main"
+contracts-schema-diff = "contracts.schema_analyzer:main"
+
+# ---------------------------------------------------------------------------
+# Packaging — include only the contracts package; exclude venv and tests
+# ---------------------------------------------------------------------------
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["contracts*"]
+exclude = ["venv*", "tests*"]
+
+# ---------------------------------------------------------------------------
+# Pytest configuration
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v"
