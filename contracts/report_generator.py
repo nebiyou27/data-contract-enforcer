@@ -52,6 +52,482 @@ def load_validation_report(path: Path) -> dict[str, Any]:
         return json.load(fh)
 
 
+def _contract_path_for_report(contract_id: str) -> str:
+    return f"generated_contracts/{contract_id}.yaml"
+
+
+def _field_path(result: dict[str, Any]) -> str:
+    check_id = str(result.get("check_id", "") or "")
+    column = str(result.get("column_name", "") or "")
+    if "." in check_id:
+        parts = check_id.split(".")
+        if len(parts) >= 2:
+            table = parts[0]
+            if column:
+                return f"{table}.{column}"
+            return ".".join(parts[:2])
+    return column or check_id or "unknown"
+
+
+def _result_clause(result: dict[str, Any]) -> str:
+    check_id = str(result.get("check_id", "") or "")
+    check_type = str(result.get("check_type", "") or "")
+    if check_id:
+        return check_id
+    return check_type or "unknown"
+
+
+def _severity_rank(severity: str) -> int:
+    order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "COMPAT": 4, "UNKNOWN": 5}
+    return order.get(str(severity).upper(), 5)
+
+
+def _is_violation_record(record: dict[str, Any]) -> bool:
+    if record.get("record_type") == "run_header":
+        return False
+    if record.get("violation_id"):
+        return True
+    status = str(record.get("status", "") or "").upper()
+    return status in {"WARN", "FAIL", "ERROR"}
+
+
+def _load_violation_runs(violation_log_path: Path | None) -> dict[str, Any]:
+    """Parse the append-only violation log into runs and entries.
+
+    If the log contains explicit run headers, the latest run is used as the
+    primary evidence source. Otherwise, the file is treated as a flat list of
+    violation records for backwards compatibility.
+    """
+    if not violation_log_path or not violation_log_path.exists():
+        return {
+            "runs": [],
+            "latest_run": None,
+            "violation_count": 0,
+            "sample_ids": [],
+            "by_severity": {},
+            "records": [],
+        }
+
+    runs: list[dict[str, Any]] = []
+    current_run: dict[str, Any] | None = None
+    flat_records: list[dict[str, Any]] = []
+
+    with open(violation_log_path, "r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            flat_records.append(record)
+
+            if record.get("record_type") == "run_header":
+                if current_run is not None:
+                    runs.append(current_run)
+                current_run = {
+                    "header": record,
+                    "records": [],
+                }
+                continue
+
+            if current_run is None:
+                current_run = {"header": None, "records": []}
+            current_run["records"].append(record)
+
+    if current_run is not None:
+        runs.append(current_run)
+
+    if not runs:
+        violation_records = [record for record in flat_records if _is_violation_record(record)]
+        by_severity: dict[str, int] = {}
+        for record in violation_records:
+            severity = str(record.get("severity", "UNKNOWN") or "UNKNOWN").upper()
+            by_severity[severity] = by_severity.get(severity, 0) + 1
+        return {
+            "runs": [],
+            "latest_run": None,
+            "violation_count": len(violation_records),
+            "sample_ids": [str(record.get("violation_id", "unknown")) for record in violation_records[:10]],
+            "by_severity": by_severity,
+            "records": violation_records,
+        }
+
+    def _run_sort_key(run: dict[str, Any]) -> tuple[str, str]:
+        header = run.get("header") or {}
+        run_timestamp = str(header.get("run_timestamp", "") or "")
+        run_id = str(header.get("run_id", "") or "")
+        return (run_timestamp, run_id)
+
+    latest_run = max(runs, key=_run_sort_key)
+    violation_records = [record for record in latest_run.get("records", []) if _is_violation_record(record)]
+    by_severity: dict[str, int] = {}
+    for record in violation_records:
+        severity = str(record.get("severity", "UNKNOWN") or "UNKNOWN").upper()
+        by_severity[severity] = by_severity.get(severity, 0) + 1
+
+    return {
+        "runs": runs,
+        "latest_run": latest_run,
+        "violation_count": len(violation_records),
+        "sample_ids": [str(record.get("violation_id", "unknown")) for record in violation_records[:10]],
+        "by_severity": by_severity,
+        "records": violation_records,
+    }
+
+
+def _count_critical_failures(validation_reports: list[dict]) -> int:
+    count = 0
+    for report in validation_reports:
+        for result in report.get("results", []):
+            if result.get("status") == "FAIL" and str(result.get("severity", "")).upper() == "CRITICAL":
+                count += 1
+    return count
+
+
+def _validation_issue_details(validation_reports: list[dict]) -> dict[str, Any]:
+    """Collect non-pass validation results and severity counts."""
+    severity_counts: dict[str, int] = {}
+    status_counts: dict[str, int] = {"PASS": 0, "WARN": 0, "FAIL": 0, "ERROR": 0}
+    issue_rows: list[dict[str, Any]] = []
+
+    for report in validation_reports:
+        contract_id = str(report.get("contract_id", "unknown") or "unknown")
+        report_id = report.get("report_id")
+        contract_path = _contract_path_for_report(contract_id)
+        for result in report.get("results", []):
+            status = str(result.get("status", "UNKNOWN") or "UNKNOWN").upper()
+            severity = str(result.get("severity", "UNKNOWN") or "UNKNOWN").upper()
+            status_counts[status] = status_counts.get(status, 0) + 1
+            if status != "PASS":
+                severity_counts[severity] = severity_counts.get(severity, 0) + 1
+                issue_rows.append(
+                    {
+                        "contract_id": contract_id,
+                        "report_id": report_id,
+                        "contract_path": contract_path,
+                        "check_id": result.get("check_id", ""),
+                        "check_type": result.get("check_type", ""),
+                        "status": status,
+                        "severity": severity,
+                        "field": _field_path(result),
+                        "clause": _result_clause(result),
+                        "actual_value": result.get("actual_value"),
+                        "expected": result.get("expected"),
+                        "message": result.get("message", ""),
+                        "records_failing": result.get("records_failing", 0),
+                    }
+                )
+
+    issue_rows.sort(key=lambda row: (_severity_rank(row["severity"]), row["contract_id"], row["clause"]))
+    return {
+        "status_counts": status_counts,
+        "severity_counts": severity_counts,
+        "issue_rows": issue_rows,
+    }
+
+
+def _schema_change_details(schema_evolution: dict | None, contract_id_hint: str | None = None) -> dict[str, Any]:
+    if not schema_evolution:
+        return {
+            "verdict": "unknown",
+            "total_breaking": 0,
+            "total_compatible": 0,
+            "changes": [],
+            "rollback_plan": None,
+            "consumer_failure_analysis": [],
+            "summary": "No schema evolution analysis",
+        }
+
+    contract_id = str(schema_evolution.get("contract_id") or contract_id_hint or "unknown")
+    contract_path = _contract_path_for_report(contract_id)
+    changes: list[dict[str, Any]] = []
+
+    breaking_changes = schema_evolution.get("breaking_changes")
+    if isinstance(breaking_changes, list):
+        for change in breaking_changes:
+            if not isinstance(change, dict):
+                continue
+            table = str(change.get("table", "") or "")
+            field = str(change.get("field", "") or "")
+            changes.append(
+                {
+                    "severity": str(change.get("severity", "UNKNOWN") or "UNKNOWN").upper(),
+                    "type": change.get("type", "unknown"),
+                    "table": table,
+                    "field": field,
+                    "field_path": f"{table}.{field}" if table and field else field or table or "unknown",
+                    "clause": change.get("type", "schema_change"),
+                    "reason": change.get("reason", ""),
+                    "contract_path": contract_path,
+                }
+            )
+    else:
+        for result in schema_evolution.get("results", []):
+            if str(result.get("status", "")).upper() == "PASS":
+                continue
+            table_field = _field_path(result)
+            changes.append(
+                {
+                    "severity": str(result.get("severity", "UNKNOWN") or "UNKNOWN").upper(),
+                    "type": result.get("check_type", "unknown"),
+                    "table": table_field.split(".", 1)[0] if "." in table_field else "",
+                    "field": table_field.split(".", 1)[1] if "." in table_field else table_field,
+                    "field_path": table_field,
+                    "clause": result.get("check_id", result.get("check_type", "schema_change")),
+                    "reason": result.get("message", ""),
+                    "contract_path": contract_path,
+                }
+            )
+
+    schema_summary = schema_evolution.get("schema_summary") or {}
+    if not changes:
+        for item in schema_summary.get("missing_columns", []) or []:
+            if not isinstance(item, dict):
+                continue
+            table = str(item.get("table", "") or "")
+            column = str(item.get("column", "") or "")
+            changes.append(
+                {
+                    "severity": "CRITICAL",
+                    "type": "schema_missing",
+                    "table": table,
+                    "field": column,
+                    "field_path": f"{table}.{column}" if table and column else column or table or "unknown",
+                    "clause": "schema_missing",
+                    "reason": f"Column '{column}' is missing from the data",
+                    "contract_path": contract_path,
+                }
+            )
+        for item in schema_summary.get("new_columns", []) or []:
+            if not isinstance(item, dict):
+                continue
+            table = str(item.get("table", "") or "")
+            column = str(item.get("column", "") or "")
+            changes.append(
+                {
+                    "severity": "MEDIUM",
+                    "type": "schema_new_column",
+                    "table": table,
+                    "field": column,
+                    "field_path": f"{table}.{column}" if table and column else column or table or "unknown",
+                    "clause": "schema_new_column",
+                    "reason": f"Column '{column}' exists in the data but is not in the contract",
+                    "contract_path": contract_path,
+                }
+            )
+
+    return {
+        "verdict": schema_evolution.get("verdict", "unknown"),
+        "total_breaking": schema_evolution.get("total_breaking", 0) or len(
+            [c for c in changes if c["severity"] in {"CRITICAL", "HIGH"}]
+        ),
+        "total_compatible": schema_evolution.get("total_non_breaking", 0)
+        or schema_evolution.get("total_compatible", 0)
+        or len([c for c in changes if c["severity"] not in {"CRITICAL", "HIGH"}]),
+        "changes": changes,
+        "rollback_plan": schema_evolution.get("rollback_plan"),
+        "consumer_failure_analysis": schema_evolution.get("consumer_failure_analysis", []),
+        "summary": schema_evolution.get("summary", "Schema evolution analysis available"),
+    }
+
+
+def _ai_risk_details(ai_checks: dict | None) -> dict[str, Any]:
+    if not ai_checks:
+        return {
+            "checks_run": 0,
+            "passed": 0,
+            "warned": 0,
+            "failed": 0,
+            "errored": 0,
+            "risk_level": "LOW",
+            "summary": "No AI checks run",
+            "details": {},
+        }
+
+    summary = ai_checks.get("summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    checks = ai_checks.get("checks", [])
+    if not isinstance(checks, list):
+        checks = []
+    detail_block = ai_checks.get("details", {})
+    if not isinstance(detail_block, dict):
+        detail_block = {}
+
+    failed = int(summary.get("failed", 0) or 0)
+    warned = int(summary.get("warned", 0) or 0)
+    risk_level = "HIGH" if failed > 0 else "MEDIUM" if warned > 0 else "LOW"
+
+    drift = detail_block.get("embedding_drift") or {}
+    prompt_validation = detail_block.get("prompt_input_validation") or detail_block.get("prompt_injection") or {}
+    schema_validation = detail_block.get("llm_output_schema") or {}
+
+    findings: list[str] = []
+    if isinstance(drift, dict) and drift.get("findings"):
+        findings.append(str(drift.get("findings")))
+    if isinstance(prompt_validation, dict):
+        if prompt_validation.get("warnings"):
+            findings.append(str(prompt_validation.get("warnings")))
+        if prompt_validation.get("message"):
+            findings.append(str(prompt_validation.get("message")))
+    if isinstance(schema_validation, dict) and schema_validation.get("message"):
+        findings.append(str(schema_validation.get("message")))
+
+    return {
+        "checks_run": summary.get("total_checks", 0),
+        "passed": summary.get("passed", 0),
+        "warned": warned,
+        "failed": failed,
+        "errored": summary.get("errored", 0),
+        "check_types": sorted({str(c.get("check_type")) for c in checks if isinstance(c, dict) and c.get("check_type")}),
+        "risk_level": risk_level,
+        "summary": ai_checks.get("summary", "AI checks available"),
+        "details": detail_block,
+        "findings": findings,
+    }
+
+
+def _build_action_candidates(
+    validation_reports: list[dict],
+    ai_checks: dict | None,
+    schema_evolution: dict | None,
+    violation_data: dict[str, Any],
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+
+    for issue in _validation_issue_details(validation_reports)["issue_rows"]:
+        status = issue["status"]
+        severity = issue["severity"]
+        priority = 0 if status == "FAIL" and severity == "CRITICAL" else 1 if status == "FAIL" else 2
+        candidates.append(
+            {
+                "priority": priority,
+                "file": issue["contract_path"],
+                "field": issue["field"],
+                "clause": issue["clause"],
+                "severity": severity,
+                "title": f"Fix {issue['clause']} in {issue['field']}",
+                "rationale": (
+                    f"{issue['message']} (actual={issue['actual_value']}, expected={issue['expected']})"
+                    if issue["actual_value"] is not None or issue["expected"] is not None
+                    else issue["message"]
+                ),
+                "downstream_consumer": None,
+            }
+        )
+
+    schema_details = _schema_change_details(schema_evolution)
+    for change in schema_details["changes"]:
+        priority = 1 if change["severity"] in {"CRITICAL", "HIGH"} else 3
+        consumer = None
+        if schema_details["consumer_failure_analysis"]:
+            for analysis in schema_details["consumer_failure_analysis"]:
+                analyzed_change = analysis.get("change", {}) if isinstance(analysis, dict) else {}
+                if analyzed_change.get("type") == change["type"] and analyzed_change.get("field") == change["field"]:
+                    affected = analysis.get("affected_subscribers", []) if isinstance(analysis, dict) else []
+                    if affected:
+                        consumer = affected[0].get("subscriber_contract") or affected[0].get("subscriber")
+                    break
+        candidates.append(
+            {
+                "priority": priority,
+                "file": change["contract_path"],
+                "field": change["field_path"],
+                "clause": change["clause"],
+                "severity": change["severity"],
+                "title": f"Address {change['type']} for {change['field_path']}",
+                "rationale": change["reason"],
+                "downstream_consumer": consumer,
+            }
+        )
+
+    if ai_checks:
+        for check in ai_checks.get("checks", []) or []:
+            if not isinstance(check, dict):
+                continue
+            status = str(check.get("status", "") or "").upper()
+            if status == "PASS":
+                continue
+            severity = str(check.get("severity", "UNKNOWN") or "UNKNOWN").upper()
+            field_name = str(check.get("field_name") or check.get("output_field") or "unknown")
+            clause = str(check.get("check_type") or "ai_check")
+            if clause == "llm_output_schema":
+                clause = "contracts/ai_extensions.py::llm_output_schema"
+            elif clause == "embedding_drift":
+                clause = "contracts/ai_extensions.py::embedding_drift"
+            elif clause == "prompt_injection":
+                clause = "contracts/ai_extensions.py::prompt_input_validation"
+            candidates.append(
+                {
+                    "priority": 2 if severity in {"HIGH", "CRITICAL"} else 4,
+                    "file": "validation_reports/ai_checks.json",
+                    "field": field_name,
+                    "clause": clause,
+                    "severity": severity,
+                    "title": f"Investigate {clause} for {field_name}",
+                    "rationale": str(check.get("message", "")),
+                    "downstream_consumer": None,
+                }
+            )
+
+    for entry in violation_data.get("records", []):
+        if not isinstance(entry, dict):
+            continue
+        severity = str(entry.get("severity", "UNKNOWN") or "UNKNOWN").upper()
+        field_name = str(entry.get("column_name") or entry.get("field") or "unknown")
+        clause = str(entry.get("check_id") or entry.get("check_type") or "violation")
+        blast_radius = entry.get("blast_radius") or {}
+        consumer = None
+        if isinstance(blast_radius, dict):
+            direct = blast_radius.get("direct_subscribers") or []
+            if direct and isinstance(direct, list) and isinstance(direct[0], dict):
+                consumer = direct[0].get("target_contract") or direct[0].get("target")
+        candidates.append(
+            {
+                "priority": 1 if severity == "CRITICAL" else 3 if severity == "HIGH" else 4,
+                "file": "violation_log/violations.jsonl",
+                "field": field_name,
+                "clause": clause,
+                "severity": severity,
+                "title": f"Resolve logged violation {clause}",
+                "rationale": str(entry.get("message", "")),
+                "downstream_consumer": consumer,
+            }
+        )
+
+    candidates.sort(key=lambda item: (item["priority"], _severity_rank(item["severity"]), item["file"], item["field"], item["clause"]))
+
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for candidate in candidates:
+        key = (candidate["file"], candidate["field"], candidate["clause"])
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(candidate)
+    return deduped
+
+
+def _render_action_text(action: dict[str, Any]) -> str:
+    line = (
+        f"{action['file']} | {action['field']} | {action['clause']} | "
+        f"{action['severity']}: {action['rationale']}"
+    )
+    consumer = action.get("downstream_consumer")
+    if consumer:
+        line += f" | downstream consumer: {consumer}"
+    return line
+
+
+def _render_markdown_list(items: list[str], empty_text: str) -> str:
+    if not items:
+        return f"- {empty_text}"
+    return "\n".join(f"- {item}" for item in items)
+
+
 def compute_data_health_score(
     validation_reports: list[dict],
     ai_checks: dict | None = None,
@@ -74,10 +550,7 @@ def compute_data_health_score(
     for report in validation_reports:
         total_checks += report.get("total_checks", 0)
         checks_passed += report.get("passed", 0)
-        # Count CRITICAL-severity FAILs across all result entries
-        for result in report.get("results", []):
-            if result.get("status") == "FAIL" and result.get("severity") == "CRITICAL":
-                critical_violations += 1
+        critical_violations += _count_critical_failures([report])
 
     if total_checks == 0:
         base = 0.0
@@ -99,6 +572,8 @@ def aggregate_validation_results(
     total_errored = 0
     
     contracts_validated = set()
+    severity_counts: dict[str, int] = {}
+    non_pass_results: list[dict[str, Any]] = []
     
     for report in validation_reports:
         total_checks += report.get("total_checks", 0)
@@ -110,6 +585,29 @@ def aggregate_validation_results(
         contract_id = report.get("contract_id")
         if contract_id:
             contracts_validated.add(contract_id)
+
+        for result in report.get("results", []):
+            status = str(result.get("status", "") or "").upper()
+            severity = str(result.get("severity", "") or "").upper()
+            if status != "PASS":
+                severity_counts[severity] = severity_counts.get(severity, 0) + 1
+                non_pass_results.append(
+                    {
+                        "contract_id": contract_id or "unknown",
+                        "contract_path": _contract_path_for_report(contract_id or "unknown"),
+                        "field": _field_path(result),
+                        "clause": _result_clause(result),
+                        "check_id": result.get("check_id", ""),
+                        "check_type": result.get("check_type", ""),
+                        "status": status,
+                        "severity": severity,
+                        "actual_value": result.get("actual_value"),
+                        "expected": result.get("expected"),
+                        "message": result.get("message", ""),
+                        "records_failing": result.get("records_failing", 0),
+                    }
+                )
+    non_pass_results.sort(key=lambda row: (_severity_rank(row["severity"]), row["contract_id"], row["clause"]))
     
     return {
         "contracts_validated": list(contracts_validated),
@@ -119,7 +617,9 @@ def aggregate_validation_results(
         "total_failed": total_failed,
         "total_warned": total_warned,
         "total_errored": total_errored,
-        "pass_rate_pct": round(total_passed / total_checks * 100, 1) if total_checks > 0 else 0
+        "pass_rate_pct": round(total_passed / total_checks * 100, 1) if total_checks > 0 else 0,
+        "severity_counts": severity_counts,
+        "non_pass_results": non_pass_results,
     }
 
 
@@ -131,11 +631,23 @@ def aggregate_ai_results(ai_checks: dict | None) -> dict[str, Any]:
             "passed": 0,
             "warned": 0,
             "failed": 0,
-            "summary": "No AI checks run"
+            "errored": 0,
+            "summary": "No AI checks run",
+            "risk_level": "LOW",
+            "details": {},
+            "findings": [],
         }
     
     summary = ai_checks.get("summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
     checks = ai_checks.get("checks", [])
+    if not isinstance(checks, list):
+        checks = []
+    details = ai_checks.get("details", {})
+    if not isinstance(details, dict):
+        details = {}
+    risk_level = "HIGH" if summary.get("failed", 0) else "MEDIUM" if summary.get("warned", 0) else "LOW"
     
     return {
         "checks_run": summary.get("total_checks", 0),
@@ -143,52 +655,34 @@ def aggregate_ai_results(ai_checks: dict | None) -> dict[str, Any]:
         "warned": summary.get("warned", 0),
         "failed": summary.get("failed", 0),
         "errored": summary.get("errored", 0),
-        "check_types": list(set(c.get("check_type") for c in checks if c.get("check_type"))),
+        "check_types": sorted({str(c.get("check_type")) for c in checks if isinstance(c, dict) and c.get("check_type")}),
         "summary": f"AI checks: {summary.get('passed', 0)} PASS, "
                    f"{summary.get('warned', 0)} WARN, {summary.get('failed', 0)} FAIL"
+                   if checks else "No AI checks run",
+        "risk_level": risk_level,
+        "details": details,
+        "findings": _ai_risk_details(ai_checks).get("findings", []),
     }
 
 
 def aggregate_schema_evolution(schema_evolution: dict | None) -> dict[str, Any]:
     """Aggregate schema evolution analysis."""
-    if not schema_evolution:
-        return {
-            "verdict": "unknown",
-            "breaking_changes": 0,
-            "non_breaking_changes": 0,
-            "summary": "No schema evolution analysis"
-        }
-    
+    details = _schema_change_details(schema_evolution)
     return {
-        "verdict": schema_evolution.get("verdict", "unknown"),
-        "breaking_changes": schema_evolution.get("total_breaking", 0),
-        "non_breaking_changes": schema_evolution.get("total_non_breaking", 0),
-        "summary": (
-            f"Schema evolution: {schema_evolution.get('verdict', 'unknown')} - "
-            f"{schema_evolution.get('total_breaking', 0)} breaking changes, "
-            f"{schema_evolution.get('total_non_breaking', 0)} non-breaking"
-        )
+        "verdict": details["verdict"],
+        "breaking_changes": details["total_breaking"],
+        "non_breaking_changes": details["total_compatible"],
+        "summary": details["summary"],
+        "changes": details["changes"],
+        "rollback_plan": details["rollback_plan"],
+        "consumer_failure_analysis": details["consumer_failure_analysis"],
     }
 
 
 def count_violations(violation_log_path: Path | None) -> tuple[int, list[str]]:
-    """Count violations and extract sample IDs."""
-    if not violation_log_path or not violation_log_path.exists():
-        return 0, []
-    
-    violation_ids = []
-    with open(violation_log_path, "r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            try:
-                record = json.loads(line)
-                violation_ids.append(record.get("violation_id", "unknown"))
-            except json.JSONDecodeError:
-                pass
-    
-    return len(violation_ids), violation_ids[:10]
+    """Count violations and extract sample IDs from the latest run."""
+    parsed = _load_violation_runs(violation_log_path)
+    return parsed["violation_count"], parsed["sample_ids"]
 
 
 def generate_report(
