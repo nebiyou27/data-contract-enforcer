@@ -1190,7 +1190,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Schema new: {new_text}")
 
     violation_rows = [
-        attribute_violation(result, contract_id, registry, lineage_graph)
+        attribute_violation(result, contract_id, registry, lineage_graph, snapshot_id)
         for result in all_results
         if result["status"] != "PASS"
     ]

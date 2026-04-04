@@ -294,11 +294,14 @@ def attribute_violation(
     contract_id: str,
     registry: dict[str, Any],
     lineage_graph: dict[str, Any] | None = None,
+    snapshot_id: str = "",
 ) -> dict[str, Any]:
     """Attach blast-radius and blame-chain metadata to a validation result.
 
     Output fields:
-        violation_id    — fresh UUID for this attribution record
+        violation_id    — deterministic UUID5 derived from contract_id + snapshot_id + check_id,
+                          stable across re-runs on the same data so downstream tooling can
+                          deduplicate and correlate without producing phantom duplicates
         check_id        — from the original validation result
         detected_at     — ISO 8601 timestamp
         blame_chain     — up to 5 ranked git commits for the upstream producer file
@@ -343,7 +346,10 @@ def attribute_violation(
     enriched = dict(violation)
     enriched.update(
         {
-            "violation_id": str(uuid.uuid4()),
+            "violation_id": str(uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"{contract_id}:{snapshot_id}:{violation.get('check_id', '')}",
+            )),
             "check_id": violation.get("check_id", ""),
             "detected_at": now,
             "blame_chain": blame_chain,
