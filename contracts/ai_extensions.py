@@ -32,7 +32,7 @@ import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 try:
     from contracts.log_config import configure_logging
@@ -75,7 +75,11 @@ VIOLATION_RATE_THRESHOLD = 0.05  # 5 %
 
 
 def load_jsonl(path: str | Path) -> list[dict]:
-    """Read a JSONL file and return a list of dicts."""
+    """Read a JSONL file and return a list of dicts.
+
+    NOTE: loads the entire file into RAM. For files larger than ~500 MB
+    use ``iter_jsonl`` which yields one record at a time.
+    """
     records: list[dict] = []
     p = Path(path)
     if not p.exists():
@@ -89,6 +93,27 @@ def load_jsonl(path: str | Path) -> list[dict]:
                 except json.JSONDecodeError:
                     pass
     return records
+
+
+def iter_jsonl(path: str | Path):
+    """Yield one parsed JSON record at a time from a JSONL file.
+
+    Memory footprint is O(1 record) regardless of file size — safe for
+    multi-GB extraction files. Each call opens the file from the start,
+    so callers needing multiple passes should call ``iter_jsonl`` once
+    per pass rather than materialising the full list.
+    """
+    p = Path(path)
+    if not p.exists():
+        return
+    with open(p, "r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    pass
 
 
 def _append_violation_log(entry: dict) -> None:
@@ -294,38 +319,40 @@ def _validate_against_schema(record: dict, schema: dict) -> list[str]:
 
 
 def check_prompt_input_schema(
-    records: list[dict],
+    records: Iterable[dict],
     schema: dict | None = None,
 ) -> dict[str, Any]:
     """Enforce JSON Schema against document metadata (prompt inputs).
 
-    Non-conforming records are written to QUARANTINE_PATH.
+    Accepts any iterable of dicts — including a streaming ``iter_jsonl``
+    generator — so the full file is never loaded into RAM.
+    Non-conforming records are written to QUARANTINE_PATH immediately.
     """
     if schema is None:
         schema = DOCUMENT_METADATA_SCHEMA
 
-    quarantine_records: list[dict] = []
-    total = len(records)
+    total = 0
     violations = 0
+    quarantine_fh = None
 
-    for record in records:
-        errors = _validate_against_schema(record, schema)
-        if errors:
-            violations += 1
-            quarantine_records.append(
-                {
+    try:
+        for record in records:
+            total += 1
+            errors = _validate_against_schema(record, schema)
+            if errors:
+                violations += 1
+                qr = {
                     "record": _scrub_record(record),
                     "schema_errors": errors,
                     "quarantined_at": datetime.now(timezone.utc).isoformat(),
                 }
-            )
-
-    # Append to quarantine file — never overwrite so prior violations survive re-runs
-    if quarantine_records:
-        QUARANTINE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(QUARANTINE_PATH, "a", encoding="utf-8") as fh:
-            for qr in quarantine_records:
-                fh.write(json.dumps(qr, ensure_ascii=False) + "\n")
+                if quarantine_fh is None:
+                    QUARANTINE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    quarantine_fh = open(QUARANTINE_PATH, "a", encoding="utf-8")
+                quarantine_fh.write(json.dumps(qr, ensure_ascii=False) + "\n")
+    finally:
+        if quarantine_fh is not None:
+            quarantine_fh.close()
 
     violation_rate = violations / total if total > 0 else 0.0
 
@@ -343,11 +370,11 @@ def check_prompt_input_schema(
         "records_scanned": total,
         "violations_found": violations,
         "violation_rate_pct": round(violation_rate * 100, 2),
-        "quarantine_path": str(QUARANTINE_PATH) if quarantine_records else None,
+        "quarantine_path": str(QUARANTINE_PATH) if violations > 0 else None,
         "message": (
             f"Prompt input schema: {violations}/{total} records non-conforming "
             f"({violation_rate * 100:.1f}%)"
-            + (f"; {len(quarantine_records)} routed to quarantine" if quarantine_records else "")
+            + (f"; {violations} routed to quarantine" if violations > 0 else "")
         ),
     }
 
@@ -371,25 +398,12 @@ def check_llm_output_violation_rate(
       - required sub-fields (decision, confidence, reasoning) are absent
       - confidence is outside [0, 1]
     """
-    records = load_jsonl(verdicts_path)
-
-    if not records:
-        return {
-            "check_type": "llm_output_violation_rate",
-            "status": "ERROR",
-            "message": f"No verdict records found at {verdicts_path}",
-        }
-
-    total = len(records)
-    violation_count = 0
+    # Stream verdicts one record at a time — O(N booleans) peak RAM instead of
+    # O(N full records). violation_flags is a list[bool] (~1 byte/record).
+    violation_flags: list[bool] = []
     violation_types: Counter = Counter()
 
-    # Split into first half / second half to compute trend
-    mid = total // 2
-    first_half_violations = 0
-    second_half_violations = 0
-
-    for i, record in enumerate(records):
+    for record in iter_jsonl(verdicts_path):
         is_violation = False
 
         verdict = record.get("verdict")
@@ -423,12 +437,20 @@ def check_llm_output_violation_rate(
             is_violation = True
             violation_types["unexpected_type"] += 1
 
-        if is_violation:
-            violation_count += 1
-            if i < mid:
-                first_half_violations += 1
-            else:
-                second_half_violations += 1
+        violation_flags.append(is_violation)
+
+    if not violation_flags:
+        return {
+            "check_type": "llm_output_violation_rate",
+            "status": "ERROR",
+            "message": f"No verdict records found at {verdicts_path}",
+        }
+
+    total = len(violation_flags)
+    mid = total // 2
+    violation_count = sum(violation_flags)
+    first_half_violations = sum(violation_flags[:mid])
+    second_half_violations = sum(violation_flags[mid:])
 
     violation_rate = violation_count / total
     first_rate = first_half_violations / mid if mid > 0 else 0.0
@@ -498,12 +520,19 @@ def run_all_extensions(
     extractions_path: str | Path,
     verdicts_path: str | Path,
 ) -> dict[str, Any]:
-    """Invoke all three AI extensions and return a combined report."""
-    extractions = load_jsonl(extractions_path)
+    """Invoke all three AI extensions and return a combined report.
 
-    # Flatten extracted_facts for embedding drift check
+    Uses two streaming passes over the extractions file so the full file
+    is never loaded into RAM — safe for multi-GB inputs.
+
+    Pass 1: collect extracted_facts (small nested objects) for embedding drift.
+    Pass 2: stream full records into check_prompt_input_schema (zero RAM accumulation).
+    """
+    # Pass 1 — flatten extracted_facts for embedding drift (small objects only)
     fact_texts: list[dict] = []
-    for doc in extractions:
+    record_count = 0
+    for doc in iter_jsonl(extractions_path):
+        record_count += 1
         for fact in doc.get("extracted_facts") or []:
             fact_texts.append(fact)
 
@@ -512,8 +541,8 @@ def run_all_extensions(
     # 1. Embedding drift on extracted fact text
     checks.append(check_embedding_drift(fact_texts, text_field="text"))
 
-    # 2. Prompt input schema validation on document metadata
-    checks.append(check_prompt_input_schema(extractions))
+    # 2. Prompt input schema validation — Pass 2, streaming (no list in RAM)
+    checks.append(check_prompt_input_schema(iter_jsonl(extractions_path)))
 
     # 3. LLM output violation rate from Week 2 verdicts
     checks.append(check_llm_output_violation_rate(verdicts_path))
@@ -522,7 +551,7 @@ def run_all_extensions(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "extractions_file": str(extractions_path),
         "verdicts_file": str(verdicts_path),
-        "records_analyzed": len(extractions),
+        "records_analyzed": record_count,
         "checks_run": len(checks),
         "checks": checks,
         "summary": {

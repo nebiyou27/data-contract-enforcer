@@ -466,5 +466,82 @@ class CheckLlmOutputViolationRateTest(unittest.TestCase):
             Path(path).unlink()
 
 
+# ---------------------------------------------------------------------------
+# iter_jsonl + streaming path
+# ---------------------------------------------------------------------------
+
+
+class IterJsonlTest(unittest.TestCase):
+    """iter_jsonl yields records without loading the full file into RAM."""
+
+    from contracts.ai_extensions import iter_jsonl
+
+    def _write_jsonl(self, records: list) -> Path:
+        fh = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        )
+        for r in records:
+            fh.write(json.dumps(r) + "\n")
+        fh.close()
+        return Path(fh.name)
+
+    def test_yields_all_records(self) -> None:
+        from contracts.ai_extensions import iter_jsonl
+        path = self._write_jsonl([{"a": 1}, {"a": 2}, {"a": 3}])
+        try:
+            result = list(iter_jsonl(path))
+            self.assertEqual(3, len(result))
+            self.assertEqual([1, 2, 3], [r["a"] for r in result])
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_missing_file_yields_nothing(self) -> None:
+        from contracts.ai_extensions import iter_jsonl
+        result = list(iter_jsonl(Path("/no/such/file.jsonl")))
+        self.assertEqual([], result)
+
+    def test_skips_invalid_json_lines(self) -> None:
+        from contracts.ai_extensions import iter_jsonl
+        path = self._write_jsonl([{"ok": True}])
+        # Append a bad line
+        with open(path, "a") as fh:
+            fh.write("{bad json\n")
+        try:
+            result = list(iter_jsonl(path))
+            self.assertEqual(1, len(result))
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_check_prompt_input_schema_accepts_generator(self) -> None:
+        """Streaming generator (not a list) must be accepted by check_prompt_input_schema."""
+        valid = {
+            "doc_id": "d1",
+            "source_path": "/x",
+            "extracted_at": "2026-04-04T00:00:00Z",
+        }
+
+        def _gen():
+            for _ in range(5):
+                yield valid
+
+        result = check_prompt_input_schema(_gen())
+        self.assertEqual(5, result["records_scanned"])
+        self.assertEqual("PASS", result["status"])
+
+    def test_streaming_violation_rate_matches_list_result(self) -> None:
+        """Streaming path produces identical violation_count to list-based path."""
+        path = self._write_jsonl([
+            {"verdict": {"decision": "allow", "confidence": 0.9, "reasoning": "ok"}},
+            {"verdict": None},   # violation
+            {"verdict": {"decision": "deny", "confidence": 0.8, "reasoning": "bad"}},
+        ])
+        try:
+            result = check_llm_output_violation_rate(str(path))
+            self.assertEqual(3, result["records_scanned"])
+            self.assertEqual(1, result["violation_count"])
+        finally:
+            path.unlink(missing_ok=True)
+
+
 if __name__ == "__main__":
     unittest.main()
