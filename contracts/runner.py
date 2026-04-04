@@ -136,7 +136,7 @@ def _safe_path(user_input: str) -> Path:
 
 # Map Bitol logical types to acceptable pandas dtypes
 TYPE_MAP: dict[str, set[str]] = {
-    "string": {"object", "string"},
+    "string": {"object", "string", "str", "string[python]", "string[pyarrow]"},
     "integer": {"int64", "Int64", "int32", "int16", "float64"},  # float64 allowed (pandas upcast)
     "number": {"float64", "Float64", "float32", "int64"},
     "boolean": {"bool", "boolean"},
@@ -375,6 +375,14 @@ def check_type(table: str, field: dict, series: pd.Series | None) -> dict:
 
     actual_dtype = str(series.dtype)
     acceptable = TYPE_MAP.get(expected_type, {"object"})
+
+    if expected_type == "string" and (
+        pd.api.types.is_string_dtype(series) or pd.api.types.is_object_dtype(series)
+    ):
+        return _result(
+            cid, col, "type", "PASS", actual_dtype, expected_type, "CRITICAL",
+            message=f"{col}: dtype '{actual_dtype}' matches logical type '{expected_type}'",
+        )
 
     if actual_dtype in acceptable:
         return _result(
