@@ -48,6 +48,24 @@ BASELINES_PATH = Path("schema_snapshots") / "baselines.json"
 
 logger = logging.getLogger(__name__)
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _safe_path(user_input: str) -> Path:
+    """Resolve a CLI-supplied path and assert it stays within the project root.
+
+    Raises ValueError for path-traversal attempts (e.g. ../../etc/passwd).
+    """
+    resolved = Path(user_input).resolve()
+    try:
+        resolved.relative_to(_PROJECT_ROOT)
+    except ValueError:
+        raise ValueError(
+            f"Path traversal rejected: '{user_input}' resolves to '{resolved}', "
+            f"which is outside the project root '{_PROJECT_ROOT}'."
+        )
+    return resolved
+
 
 # --- Stage 1: Load + Flatten -------------------------------------------------
 
@@ -978,16 +996,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     configure_logging()
 
+    source_path = _safe_path(args.source)
+    output_dir_path = _safe_path(args.output)
+
     # -- Stage 1 --------------------------------------------------------------
     # Stream the source file rather than loading it all into RAM.
     # Each flatten call does its own sequential pass so peak memory is
     # O(one DataFrame) rather than O(entire file).
-    logger.info("Stage 1 -- Loading %s ...", args.source)
-    record_count = sum(1 for _ in iter_jsonl(args.source))
+    logger.info("Stage 1 -- Loading %s ...", source_path)
+    record_count = sum(1 for _ in iter_jsonl(str(source_path)))
     logger.info("Loaded %d source documents", record_count)
 
     if "langsmith" in args.contract_id.lower():
-        df_trace = flatten_trace_nodes(iter_jsonl(args.source))
+        df_trace = flatten_trace_nodes(iter_jsonl(str(source_path)))
         logger.info("Flattened -> trace_nodes=%dr x %dc", len(df_trace), len(df_trace.columns))
 
         # -- Stage 2 ----------------------------------------------------------
@@ -1014,9 +1035,9 @@ def main(argv: list[str] | None = None) -> int:
         row_counts = {"trace_nodes": len(df_trace)}
     else:
         # Three separate streaming passes — each holds at most one DataFrame in RAM.
-        df_docs = flatten_documents(iter_jsonl(args.source))
-        df_facts = flatten_facts(iter_jsonl(args.source))
-        df_entities = flatten_entities(iter_jsonl(args.source))
+        df_docs = flatten_documents(iter_jsonl(str(source_path)))
+        df_facts = flatten_facts(iter_jsonl(str(source_path)))
+        df_entities = flatten_entities(iter_jsonl(str(source_path)))
 
         logger.info(
             "Flattened -> documents=%dr x %dc  facts=%dr x %dc  entities=%dr x %dc",
@@ -1082,11 +1103,11 @@ def main(argv: list[str] | None = None) -> int:
         lineage_records=lineage_records,
         registry=registry,
         record_count=record_count,
-        source_path=args.source,
+        source_path=str(source_path),
         row_counts=row_counts,
     )
 
-    output_dir = Path(args.output)
+    output_dir = output_dir_path
 
     # Write main contract
     contract_path = output_dir / f"{args.contract_id}.yaml"

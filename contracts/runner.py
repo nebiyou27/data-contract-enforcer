@@ -106,6 +106,24 @@ VIOLATION_LOG_PATH = Path("violation_log") / "violations.jsonl"
 
 logger = logging.getLogger(__name__)
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _safe_path(user_input: str) -> Path:
+    """Resolve a CLI-supplied path and assert it stays within the project root.
+
+    Raises ValueError for path-traversal attempts (e.g. ../../etc/passwd).
+    """
+    resolved = Path(user_input).resolve()
+    try:
+        resolved.relative_to(_PROJECT_ROOT)
+    except ValueError:
+        raise ValueError(
+            f"Path traversal rejected: '{user_input}' resolves to '{resolved}', "
+            f"which is outside the project root '{_PROJECT_ROOT}'."
+        )
+    return resolved
+
 # Map Bitol logical types to acceptable pandas dtypes
 TYPE_MAP: dict[str, set[str]] = {
     "string": {"object", "string"},
@@ -1212,6 +1230,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    contract_path = _safe_path(args.contract)
+    data_path = _safe_path(args.data)
+    output_path = _safe_path(args.output)
+
     now = datetime.now(timezone.utc)
     report_id = str(uuid.uuid4())
     configure_logging(run_id=report_id)
@@ -1219,8 +1241,8 @@ def main(argv: list[str] | None = None) -> int:
     tracer = get_tracer("contracts.runner")
 
     # Load contract
-    logger.info("Loading contract: %s", args.contract)
-    with open(args.contract, "r", encoding="utf-8") as fh:
+    logger.info("Loading contract: %s", contract_path)
+    with open(contract_path, "r", encoding="utf-8") as fh:
         contract = yaml.safe_load(fh)
 
     contract_id = contract.get("id", "unknown")
@@ -1229,15 +1251,15 @@ def main(argv: list[str] | None = None) -> int:
     registry = load_registry(registry_path)
 
     # Load + flatten data (streaming — never materialises the full file in RAM)
-    logger.info("Loading data: %s", args.data)
-    record_count = sum(1 for _ in iter_jsonl(args.data))
+    logger.info("Loading data: %s", data_path)
+    record_count = sum(1 for _ in iter_jsonl(str(data_path)))
     logger.info("%d source documents loaded", record_count)
 
-    snapshot_id = sha256_file(args.data)
+    snapshot_id = sha256_file(str(data_path))
 
     table_defs = contract.get("schema", {}).get("tables", [])
     table_names = [t["name"] for t in table_defs]
-    frames = flatten_all(args.data, table_names)
+    frames = flatten_all(str(data_path), table_names)
 
     lineage_input = next(
         (
@@ -1376,11 +1398,10 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     # Write report
-    out_path = Path(args.output)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w", encoding="utf-8") as fh:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2, ensure_ascii=False)
-    logger.info("Report written: %s", out_path)
+    logger.info("Report written: %s", output_path)
 
     # Save baselines:
     #   - first run: always write (no golden baseline exists yet)
