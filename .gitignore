@@ -6,7 +6,9 @@ __pycache__/
 Challenge_Documents/
 .refinery/
 violation_log/
+quarantine/
+schema_snapshots/
+validation_reports/
+enforcer_report/
 outputs/**/*_injected.jsonl
-validation_reports/*_injected.json
 thursday_report.md
-.claude/ 
