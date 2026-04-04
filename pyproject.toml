@@ -59,6 +59,7 @@ contracts-schema-diff = "contracts.schema_analyzer:main"
 contracts-baseline    = "contracts.baseline_manager:main"
 contracts-evolution-gate = "contracts.evolution_gate:main"
 contracts-quarantine     = "contracts.quarantine_manager:main"
+contracts-run-all        = "contracts.batch_runner:main"
 
 # ---------------------------------------------------------------------------
 # Packaging — include only the contracts package; exclude venv and tests

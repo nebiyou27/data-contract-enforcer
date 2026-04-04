@@ -1,0 +1,33 @@
+# batch.yaml -- Concurrent validation manifest for all project contracts.
+#
+# Run with:
+#   contracts-run-all --batch batch.yaml
+#   contracts-run-all --batch batch.yaml --max-workers 4
+#
+# To promote baselines for all contracts in one shot:
+#   contracts-run-all --batch batch.yaml  (then)
+#   # update promote_baselines: true for specific jobs, or use contracts-baseline promote
+
+defaults:
+  mode: AUDIT
+  promote_baselines: false
+
+# Maximum parallel threads.  4 = one per contract; set lower on memory-constrained hosts.
+max_workers: 4
+
+jobs:
+  - contract: generated_contracts/week3-document-refinery-extractions.yaml
+    data:     outputs/week3/extractions.jsonl
+    output:   validation_reports/week3_baseline.json
+
+  - contract: generated_contracts/week4-lineage-graph.yaml
+    data:     outputs/week4/lineage_snapshots.jsonl
+    output:   validation_reports/week4_baseline.json
+
+  - contract: generated_contracts/week5-event-store.yaml
+    data:     outputs/week5/events.jsonl
+    output:   validation_reports/week5_baseline.json
+
+  - contract: generated_contracts/langsmith-traces.yaml
+    data:     outputs/traces/automaton_auditor_week2_langsmith_tree.jsonl
+    output:   validation_reports/langsmith-traces.json
