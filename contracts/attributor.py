@@ -16,6 +16,7 @@ blame chain.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import uuid
 from collections import deque
@@ -161,10 +162,13 @@ def _run_git_log(file_path: str, n: int = 20) -> list[dict[str, str]]:
                 continue
             parts = line.split("|", 3)
             if len(parts) >= 4:
+                # Strip control characters (including newlines) from the author
+                # field so a crafted commit message cannot corrupt JSONL output.
+                safe_author = re.sub(r"[\x00-\x1f\x7f]", " ", parts[1]).strip()
                 commits.append(
                     {
                         "commit_hash": parts[0],
-                        "author": parts[1],
+                        "author": safe_author,
                         "commit_timestamp": parts[2],
                         "commit_message": parts[3],
                     }
