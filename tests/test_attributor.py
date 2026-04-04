@@ -211,6 +211,225 @@ class LoadRegistryNewSchemaTest(unittest.TestCase):
         self.assertIn("langsmith-traces", source_contracts)
 
 
+class BlameChainTest(unittest.TestCase):
+    """_build_blame_chain confidence scoring and ranking."""
+
+    from contracts.attributor import _build_blame_chain
+
+    def _commit(self, days_ago: float, hash_: str = "abc") -> dict:
+        from datetime import datetime, timedelta, timezone
+        ts = (datetime.now(timezone.utc) - timedelta(days=days_ago)).isoformat()
+        return {
+            "commit_hash": hash_,
+            "author": "Alice",
+            "commit_timestamp": ts,
+            "commit_message": "fix: something",
+        }
+
+    def test_empty_commits_returns_empty(self) -> None:
+        from contracts.attributor import _build_blame_chain
+        self.assertEqual([], _build_blame_chain([]))
+
+    def test_recent_commit_has_higher_score_than_old(self) -> None:
+        from contracts.attributor import _build_blame_chain
+        recent = self._commit(0, "new")
+        old = self._commit(8, "old")
+        chain = _build_blame_chain([old, recent])
+        self.assertEqual("new", chain[0]["commit_hash"])
+
+    def test_lineage_hops_penalty_reduces_score(self) -> None:
+        from contracts.attributor import _build_blame_chain
+        commit = self._commit(0)
+        no_hop = _build_blame_chain([commit], lineage_hops=0)[0]["confidence_score"]
+        one_hop = _build_blame_chain([commit], lineage_hops=1)[0]["confidence_score"]
+        self.assertGreater(no_hop, one_hop)
+
+    def test_score_is_clamped_between_0_and_1(self) -> None:
+        from contracts.attributor import _build_blame_chain
+        stale = self._commit(100)  # 100 days → base = 1 - 10 = -9 → clamped 0
+        chain = _build_blame_chain([stale])
+        self.assertEqual(0.0, chain[0]["confidence_score"])
+
+    def test_max_candidates_limits_output(self) -> None:
+        from contracts.attributor import _build_blame_chain
+        commits = [self._commit(i, f"h{i}") for i in range(10)]
+        chain = _build_blame_chain(commits, max_candidates=3)
+        self.assertEqual(3, len(chain))
+
+    def test_required_output_fields_present(self) -> None:
+        from contracts.attributor import _build_blame_chain
+        chain = _build_blame_chain([self._commit(1)])
+        for field in ("commit_hash", "author", "commit_timestamp", "commit_message", "confidence_score"):
+            self.assertIn(field, chain[0])
+
+    def test_unparseable_timestamp_uses_fallback_score(self) -> None:
+        from contracts.attributor import _build_blame_chain
+        bad = {
+            "commit_hash": "bad",
+            "author": "Bob",
+            "commit_timestamp": "not-a-date",
+            "commit_message": "oops",
+        }
+        chain = _build_blame_chain([bad])
+        # 30-day fallback: base = 1 - 3 = -2 → clamped 0
+        self.assertEqual(0.0, chain[0]["confidence_score"])
+
+
+# ---------------------------------------------------------------------------
+# _registry_subscriptions_for_source
+# ---------------------------------------------------------------------------
+
+class RegistrySubscriptionsForSourceTest(unittest.TestCase):
+    from contracts.attributor import _registry_subscriptions_for_source
+
+    def test_matches_by_source_field(self) -> None:
+        from contracts.attributor import _registry_subscriptions_for_source
+        result = _registry_subscriptions_for_source(REGISTRY, "Week 3")
+        self.assertEqual(1, len(result))
+        self.assertEqual("Week 4", result[0]["target"])
+
+    def test_no_match_returns_empty(self) -> None:
+        from contracts.attributor import _registry_subscriptions_for_source
+        result = _registry_subscriptions_for_source(REGISTRY, "Week 99")
+        self.assertEqual([], result)
+
+    def test_leaf_node_returns_empty(self) -> None:
+        from contracts.attributor import _registry_subscriptions_for_source
+        # Week 7 has no outgoing subscriptions in REGISTRY
+        result = _registry_subscriptions_for_source(REGISTRY, "Week 7")
+        self.assertEqual([], result)
+
+    def test_matches_by_source_contract_field(self) -> None:
+        from contracts.attributor import _registry_subscriptions_for_source
+        # source_contract match
+        result = _registry_subscriptions_for_source(REGISTRY, "week3-document-refinery-extractions")
+        self.assertEqual(1, len(result))
+
+
+# ---------------------------------------------------------------------------
+# _reachable_targets (BFS traversal)
+# ---------------------------------------------------------------------------
+
+class ReachableTargetsTest(unittest.TestCase):
+    from contracts.attributor import _reachable_targets
+
+    def test_direct_subscriber_at_depth_1(self) -> None:
+        from contracts.attributor import _reachable_targets
+        depths = _reachable_targets(REGISTRY["subscriptions"], "Week 3")
+        self.assertEqual(1, depths["Week 4"])
+
+    def test_transitive_subscriber_at_depth_2(self) -> None:
+        from contracts.attributor import _reachable_targets
+        depths = _reachable_targets(REGISTRY["subscriptions"], "Week 3")
+        self.assertEqual(2, depths["Week 7"])
+
+    def test_leaf_source_has_no_reachable_targets(self) -> None:
+        from contracts.attributor import _reachable_targets
+        depths = _reachable_targets(REGISTRY["subscriptions"], "Week 7")
+        self.assertEqual({}, depths)
+
+    def test_mid_chain_source_skips_upstream(self) -> None:
+        from contracts.attributor import _reachable_targets
+        depths = _reachable_targets(REGISTRY["subscriptions"], "Week 4")
+        # Week 3 should NOT appear (it's upstream)
+        self.assertNotIn("Week 3", depths)
+        self.assertEqual(1, depths.get("Week 7"))
+
+    def test_empty_subscriptions_returns_empty(self) -> None:
+        from contracts.attributor import _reachable_targets
+        self.assertEqual({}, _reachable_targets([], "Week 3"))
+
+
+# ---------------------------------------------------------------------------
+# _enrich_with_lineage
+# ---------------------------------------------------------------------------
+
+LINEAGE_GRAPH = {
+    "nodes": [
+        {"node_id": "n1", "label": "Week 4 Lineage Graph", "type": "dataset", "path": "outputs/week4/graph.jsonl"},
+        {"node_id": "n2", "label": "Week 7 Trust Boundary", "type": "dataset", "path": "outputs/week7/trust.jsonl"},
+        {"node_id": "n3", "label": "Unrelated Model", "type": "model", "path": "models/unrelated.py"},
+    ],
+    "edges": [],
+}
+
+
+class EnrichWithLineageTest(unittest.TestCase):
+    from contracts.attributor import _enrich_with_lineage
+
+    def test_matches_target_by_label_case_insensitive(self) -> None:
+        from contracts.attributor import _enrich_with_lineage
+        matches = _enrich_with_lineage(LINEAGE_GRAPH, ["week 4"])
+        labels = [m["label"] for m in matches]
+        self.assertIn("Week 4 Lineage Graph", labels)
+
+    def test_unrelated_nodes_not_returned(self) -> None:
+        from contracts.attributor import _enrich_with_lineage
+        matches = _enrich_with_lineage(LINEAGE_GRAPH, ["week 4"])
+        labels = [m["label"] for m in matches]
+        self.assertNotIn("Unrelated Model", labels)
+
+    def test_empty_target_names_returns_empty(self) -> None:
+        from contracts.attributor import _enrich_with_lineage
+        self.assertEqual([], _enrich_with_lineage(LINEAGE_GRAPH, []))
+
+    def test_empty_lineage_nodes_returns_empty(self) -> None:
+        from contracts.attributor import _enrich_with_lineage
+        self.assertEqual([], _enrich_with_lineage({"nodes": [], "edges": []}, ["week 4"]))
+
+    def test_deduplicates_on_node_id_and_path(self) -> None:
+        from contracts.attributor import _enrich_with_lineage
+        # Duplicate node
+        dup_graph = {
+            "nodes": [
+                {"node_id": "n1", "label": "Week 4 Graph", "type": "dataset", "path": "a/b.jsonl"},
+                {"node_id": "n1", "label": "Week 4 Graph", "type": "dataset", "path": "a/b.jsonl"},
+            ],
+            "edges": [],
+        }
+        matches = _enrich_with_lineage(dup_graph, ["week 4"])
+        self.assertEqual(1, len(matches))
+
+    def test_required_fields_in_match(self) -> None:
+        from contracts.attributor import _enrich_with_lineage
+        matches = _enrich_with_lineage(LINEAGE_GRAPH, ["week 4"])
+        for field in ("node_id", "label", "type", "path"):
+            self.assertIn(field, matches[0])
+
+
+# ---------------------------------------------------------------------------
+# load_lineage_graph
+# ---------------------------------------------------------------------------
+
+class LoadLineageGraphTest(unittest.TestCase):
+    def test_missing_file_returns_empty_nodes_and_edges(self) -> None:
+        from contracts.attributor import load_lineage_graph
+        result = load_lineage_graph(Path("/no/such/lineage.jsonl"))
+        self.assertEqual([], result["nodes"])
+        self.assertEqual([], result["edges"])
+
+    def test_loads_jsonl_records(self) -> None:
+        from contracts.attributor import load_lineage_graph
+        import tempfile
+        record = {"nodes": [{"node_id": "n1"}], "edges": [{"from": "n1", "to": "n2"}]}
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as fh:
+            import json
+            fh.write(json.dumps(record) + "\n")
+            path = Path(fh.name)
+        try:
+            result = load_lineage_graph(path)
+            self.assertEqual(1, len(result["nodes"]))
+            self.assertEqual("n1", result["nodes"][0]["node_id"])
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_none_path_returns_empty(self) -> None:
+        from contracts.attributor import load_lineage_graph
+        result = load_lineage_graph(None)
+        self.assertEqual([], result["nodes"])
+        self.assertEqual([], result["edges"])
+
+
 if __name__ == "__main__":
     unittest.main()
 
