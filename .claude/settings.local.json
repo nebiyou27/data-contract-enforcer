@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(venv/Scripts/python scripts/migrate_week5.py)",
-      "Bash(venv/Scripts/python contracts/runner.py --contract generated_contracts/week5-event-store.yaml --data outputs/week5/events.jsonl --output validation_reports/week5_baseline.json)"
-    ]
-  }
-}
