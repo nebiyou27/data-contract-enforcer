@@ -36,11 +36,13 @@ from typing import Any, Iterable
 
 try:
     from contracts.log_config import configure_logging
+    from contracts.config import config
 except ModuleNotFoundError:
     import sys as _sys
     from pathlib import Path as _Path
     _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
     from contracts.log_config import configure_logging
+    from contracts.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +67,9 @@ DOCUMENT_METADATA_SCHEMA: dict[str, Any] = {
     },
 }
 
-# Threshold: violation rate above this triggers a WARN entry in the log
-VIOLATION_RATE_THRESHOLD = 0.05  # 5 %
+# Threshold: violation rate above this triggers a WARN entry in the log.
+# Override with ECE_VIOLATION_RATE_THRESHOLD env var (see contracts/config.py).
+VIOLATION_RATE_THRESHOLD = config.llm_violation_rate_threshold
 
 
 # ---------------------------------------------------------------------------
@@ -232,9 +235,9 @@ def check_embedding_drift(
     baseline_centroid: dict[str, float] = baseline_data.get("centroid", {})
     distance = _cosine_distance(baseline_centroid, current_centroid)
 
-    if distance >= 0.3:
+    if distance >= config.embedding_fail_distance:
         status = "FAIL"
-    elif distance >= 0.1:
+    elif distance >= config.embedding_warn_distance:
         status = "WARN"
     else:
         status = "PASS"
@@ -358,7 +361,7 @@ def check_prompt_input_schema(
 
     if violation_rate == 0.0:
         status = "PASS"
-    elif violation_rate < 0.1:
+    elif violation_rate < config.prompt_schema_fail_rate:
         status = "WARN"
     else:
         status = "FAIL"
@@ -456,9 +459,9 @@ def check_llm_output_violation_rate(
     first_rate = first_half_violations / mid if mid > 0 else 0.0
     second_rate = second_half_violations / (total - mid) if (total - mid) > 0 else 0.0
 
-    if second_rate > first_rate + 0.05:
+    if second_rate > first_rate + config.llm_trend_delta:
         trend = "increasing"
-    elif first_rate > second_rate + 0.05:
+    elif first_rate > second_rate + config.llm_trend_delta:
         trend = "decreasing"
     else:
         trend = "stable"

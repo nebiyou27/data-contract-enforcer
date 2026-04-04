@@ -1,0 +1,186 @@
+name: Contract Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Job 1: Unit + integration tests
+  # -------------------------------------------------------------------------
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest --tb=short -q
+
+  # -------------------------------------------------------------------------
+  # Job 2: Contract validation gate (runs on push to main only)
+  #
+  # Validates all four active contracts against their source data and fails
+  # the workflow if any check returns FAIL or ERROR.
+  # -------------------------------------------------------------------------
+  validate-contracts:
+    name: Validate Contracts
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Generate contracts from source data
+        run: |
+          contracts-generate \
+            --source outputs/week3/extractions.jsonl \
+            --contract-id week3-document-refinery-extractions \
+            --lineage outputs/week4/lineage_snapshots.jsonl \
+            --output generated_contracts/
+
+          contracts-generate \
+            --source outputs/week4/lineage_snapshots.jsonl \
+            --contract-id week4-lineage-graph \
+            --output generated_contracts/
+
+          contracts-generate \
+            --source outputs/week5/events.jsonl \
+            --contract-id week5-event-store \
+            --output generated_contracts/
+
+          contracts-generate \
+            --source outputs/traces/automaton_auditor_week2_langsmith_tree.jsonl \
+            --contract-id langsmith-traces \
+            --output generated_contracts/
+
+      - name: Validate all contracts (batch)
+        run: contracts-run-all --batch batch.yaml --fail-fast
+        env:
+          ECE_DRIFT_Z_WARN: "2.0"
+          ECE_DRIFT_Z_FAIL: "3.0"
+
+      - name: Upload validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-reports
+          path: validation_reports/
+          retention-days: 30
+
+  # -------------------------------------------------------------------------
+  # Job 3: Schema evolution gate (runs on pull requests only)
+  #
+  # Blocks a PR merge if it removes a field registered as breaking in the
+  # subscription registry.
+  # -------------------------------------------------------------------------
+  evolution-gate:
+    name: Schema Evolution Gate
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed for git diff
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Run schema evolution gate
+        run: |
+          for contract_id in \
+            week3-document-refinery-extractions \
+            week4-lineage-graph \
+            week5-event-store \
+            langsmith-traces; do
+
+            contracts-evolution-gate \
+              --contract "generated_contracts/${contract_id}.yaml" \
+              --proposed-ref HEAD \
+              --current-ref origin/main
+
+          done
+
+  # -------------------------------------------------------------------------
+  # Job 4: Enforcer report (runs on push to main, after validation passes)
+  # -------------------------------------------------------------------------
+  report:
+    name: Generate Enforcer Report
+    runs-on: ubuntu-latest
+    needs: validate-contracts
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Download validation reports
+        uses: actions/download-artifact@v4
+        with:
+          name: validation-reports
+          path: validation_reports/
+
+      - name: Generate enforcer report
+        run: |
+          contracts-report \
+            --validation-reports \
+              validation_reports/week3_baseline.json \
+              validation_reports/week4_baseline.json \
+              validation_reports/week5_baseline.json \
+              validation_reports/langsmith-traces.json \
+            --violation-log violation_log/violations.jsonl \
+            --output enforcer_report/report_data.json
+
+      - name: Print health score
+        run: |
+          score=$(python -c "import json; d=json.load(open('enforcer_report/report_data.json')); print(d['data_health_score'])")
+          echo "Data health score: $score"
+          if [ "$score" -lt 70 ]; then
+            echo "::error::Health score $score is below minimum threshold (70)"
+            exit 1
+          fi
+
+      - name: Upload enforcer report
+        uses: actions/upload-artifact@v4
+        with:
+          name: enforcer-report
+          path: enforcer_report/
+          retention-days: 90

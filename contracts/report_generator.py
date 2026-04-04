@@ -35,11 +35,13 @@ import pandas as pd
 
 try:
     from contracts.log_config import configure_logging
+    from contracts.config import config
 except ModuleNotFoundError:
     import sys as _sys
     from pathlib import Path as _Path
     _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
     from contracts.log_config import configure_logging
+    from contracts.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,7 @@ def compute_data_health_score(
     else:
         base = (checks_passed / total_checks) * 100
 
-    score = base - (20 * critical_violations)
+    score = base - (config.critical_violation_penalty * critical_violations)
     return max(0, min(100, int(round(score))))
 
 

@@ -26,6 +26,14 @@ from typing import Any
 
 import yaml
 
+try:
+    from contracts.config import config
+except ModuleNotFoundError:
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+    from contracts.config import config
+
 DEFAULT_REGISTRY_PATH = Path("contract_registry") / "subscriptions.yaml"
 
 
@@ -186,8 +194,8 @@ def _build_blame_chain(
     """Rank git commits and build a blame chain.
 
     Confidence score formula:
-        base  = 1.0 - (days_since_commit * 0.1)
-        score = base - (lineage_hops * 0.2)
+        base  = 1.0 - (days_since_commit * config.blame_days_discount)
+        score = base - (lineage_hops * config.blame_hops_penalty)
         score = clamp(score, 0.0, 1.0)
 
     Returns up to max_candidates entries sorted by confidence descending.
@@ -205,8 +213,8 @@ def _build_blame_chain(
         except Exception:
             days_since = 30.0  # fallback when timestamp is unparseable
 
-        base = 1.0 - (days_since * 0.1)
-        score = base - (lineage_hops * 0.2)
+        base = 1.0 - (days_since * config.blame_days_discount)
+        score = base - (lineage_hops * config.blame_hops_penalty)
         score = round(max(0.0, min(1.0, score)), 4)
 
         candidates.append(
@@ -220,7 +228,7 @@ def _build_blame_chain(
         )
 
     candidates.sort(key=lambda c: c["confidence_score"], reverse=True)
-    return candidates[:max_candidates]
+    return candidates[:max_candidates or config.max_blame_candidates]
 
 
 def _registry_subscriptions_for_source(registry: dict[str, Any], source_label: str) -> list[dict[str, Any]]:
@@ -340,7 +348,7 @@ def attribute_violation(
     producer_file = _find_producer_file(contract_id, registry)
     lineage_hops = contamination_depth  # use registry depth as hop count proxy
     if producer_file:
-        commits = _run_git_log(producer_file, n=20)
+        commits = _run_git_log(producer_file, n=config.git_log_limit)
     else:
         commits = []
 

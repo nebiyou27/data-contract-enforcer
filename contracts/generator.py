@@ -33,10 +33,12 @@ import yaml
 try:
     from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
     from contracts.log_config import configure_logging
+    from contracts.config import config
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from contracts.attributor import DEFAULT_REGISTRY_PATH, load_registry
     from contracts.log_config import configure_logging
+    from contracts.config import config
 
 try:
     import anthropic as _anthropic
@@ -290,7 +292,7 @@ def profile_column(series: pd.Series) -> dict:
             else _to_python(v)
         )
     cardinality = int(normalized.nunique()) if not normalized.empty else 0
-    sample_values = [str(v) for v in normalized.unique()[:10].tolist()]
+    sample_values = [str(v) for v in normalized.unique()[:config.sample_values_limit].tolist()]
 
     profile: dict[str, Any] = {
         "name": series.name,
@@ -503,7 +505,7 @@ def profile_to_field_clause(profile: dict) -> dict:
 
     # Rule 3 -- enum (low-cardinality categoricals)
     if (
-        cardinality <= 10
+        cardinality <= config.enum_cardinality_limit
         and dtype == "object"
         and sample_values
         and not name.endswith("_id")

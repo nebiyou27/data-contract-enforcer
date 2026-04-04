@@ -40,6 +40,14 @@ from typing import Any
 import pandas as pd
 import yaml
 
+try:
+    from contracts.config import config
+except ModuleNotFoundError:
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+    from contracts.config import config
+
 # Import flatten helpers from generator (same package)
 try:
     from contracts.generator import (
@@ -641,19 +649,19 @@ def check_drift_mean(
 
     z_score = abs(current_mean - baseline_mean) / baseline_stddev
 
-    if z_score > 3:
+    if z_score > config.drift_z_fail:
         return _result(
             cid, col, "drift_mean", "FAIL",
             f"mean={current_mean} (z={z_score:.2f})",
             f"baseline mean={baseline_mean} ± {baseline_stddev}",
-            "HIGH", message=f"{col}: mean drift z={z_score:.2f} > 3σ",
+            "HIGH", message=f"{col}: mean drift z={z_score:.2f} > {config.drift_z_fail}σ",
         )
-    if z_score > 2:
+    if z_score > config.drift_z_warn:
         return _result(
             cid, col, "drift_mean", "WARN",
             f"mean={current_mean} (z={z_score:.2f})",
             f"baseline mean={baseline_mean} ± {baseline_stddev}",
-            "MEDIUM", message=f"{col}: mean drift z={z_score:.2f} > 2σ",
+            "MEDIUM", message=f"{col}: mean drift z={z_score:.2f} > {config.drift_z_warn}σ",
         )
     return _result(
         cid, col, "drift_mean", "PASS",
@@ -695,26 +703,26 @@ def check_drift_variance(
 
     ratio = c_std / b_std
 
-    if ratio > 4.0:
+    if ratio > config.drift_var_fail_high:
         return _result(
             cid, col, "drift_variance", "FAIL",
             f"stddev={c_std:.6f} (ratio={ratio:.2f}×)",
             f"baseline stddev={b_std:.6f}",
-            "HIGH", message=f"{col}: variance explosion ratio={ratio:.2f}× > 4×",
+            "HIGH", message=f"{col}: variance explosion ratio={ratio:.2f}× > {config.drift_var_fail_high}×",
         )
-    if ratio > 2.0:
+    if ratio > config.drift_var_warn_high:
         return _result(
             cid, col, "drift_variance", "WARN",
             f"stddev={c_std:.6f} (ratio={ratio:.2f}×)",
             f"baseline stddev={b_std:.6f}",
-            "MEDIUM", message=f"{col}: variance inflation ratio={ratio:.2f}× > 2×",
+            "MEDIUM", message=f"{col}: variance inflation ratio={ratio:.2f}× > {config.drift_var_warn_high}×",
         )
-    if ratio < 0.25:
+    if ratio < config.drift_var_warn_low:
         return _result(
             cid, col, "drift_variance", "WARN",
             f"stddev={c_std:.6f} (ratio={ratio:.2f}×)",
             f"baseline stddev={b_std:.6f}",
-            "MEDIUM", message=f"{col}: variance collapse ratio={ratio:.2f}× < 0.25×",
+            "MEDIUM", message=f"{col}: variance collapse ratio={ratio:.2f}× < {config.drift_var_warn_low}×",
         )
     return _result(
         cid, col, "drift_variance", "PASS",
@@ -796,7 +804,7 @@ def check_drift_null_fraction(
     delta = c_nf - b_nf
 
     if b_nf == 0.0 and c_nf > 0.0:
-        status = "FAIL" if c_nf > 0.20 else "WARN"
+        status = "FAIL" if c_nf > config.drift_null_fail_pp else "WARN"
         severity = "HIGH" if status == "FAIL" else "MEDIUM"
         return _result(
             cid, col, "drift_null_fraction", status,
@@ -804,19 +812,19 @@ def check_drift_null_fraction(
             severity,
             message=f"{col}: nulls appeared on previously fully-populated column ({c_nf:.1%} null)",
         )
-    if delta > 0.20:
+    if delta > config.drift_null_fail_pp:
         return _result(
             cid, col, "drift_null_fraction", "FAIL",
             f"null_fraction={c_nf:.4f} (Δ={delta:+.4f})",
             f"baseline null_fraction={b_nf:.4f}",
-            "HIGH", message=f"{col}: null fraction grew by {delta:.1%} > 20 pp threshold",
+            "HIGH", message=f"{col}: null fraction grew by {delta:.1%} > {config.drift_null_fail_pp:.0%} threshold",
         )
-    if delta > 0.05:
+    if delta > config.drift_null_warn_pp:
         return _result(
             cid, col, "drift_null_fraction", "WARN",
             f"null_fraction={c_nf:.4f} (Δ={delta:+.4f})",
             f"baseline null_fraction={b_nf:.4f}",
-            "MEDIUM", message=f"{col}: null fraction grew by {delta:.1%} > 5 pp threshold",
+            "MEDIUM", message=f"{col}: null fraction grew by {delta:.1%} > {config.drift_null_warn_pp:.0%} threshold",
         )
     return _result(
         cid, col, "drift_null_fraction", "PASS",
@@ -860,26 +868,26 @@ def check_drift_cardinality(
 
     ratio = c_card / b_card
 
-    if ratio > 5.0:
+    if ratio > config.drift_card_fail_high:
         return _result(
             cid, col, "drift_cardinality", "FAIL",
             f"cardinality={c_card} (ratio={ratio:.2f}×)",
             f"baseline cardinality={b_card}",
-            "HIGH", message=f"{col}: cardinality explosion ratio={ratio:.2f}× > 5×",
+            "HIGH", message=f"{col}: cardinality explosion ratio={ratio:.2f}× > {config.drift_card_fail_high}×",
         )
-    if ratio > 2.0:
+    if ratio > config.drift_card_warn_high:
         return _result(
             cid, col, "drift_cardinality", "WARN",
             f"cardinality={c_card} (ratio={ratio:.2f}×)",
             f"baseline cardinality={b_card}",
-            "MEDIUM", message=f"{col}: cardinality spike ratio={ratio:.2f}× > 2×",
+            "MEDIUM", message=f"{col}: cardinality spike ratio={ratio:.2f}× > {config.drift_card_warn_high}×",
         )
-    if ratio < 0.5:
+    if ratio < config.drift_card_warn_low:
         return _result(
             cid, col, "drift_cardinality", "WARN",
             f"cardinality={c_card} (ratio={ratio:.2f}×)",
             f"baseline cardinality={b_card}",
-            "MEDIUM", message=f"{col}: cardinality collapse ratio={ratio:.2f}× < 0.5×",
+            "MEDIUM", message=f"{col}: cardinality collapse ratio={ratio:.2f}× < {config.drift_card_warn_low}×",
         )
     return _result(
         cid, col, "drift_cardinality", "PASS",
