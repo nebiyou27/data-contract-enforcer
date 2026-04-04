@@ -1185,10 +1185,19 @@ def main(argv: list[str] | None = None) -> int:
         if result["status"] != "PASS"
     ]
     VIOLATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(VIOLATION_LOG_PATH, "w", encoding="utf-8") as fh:
+    run_header = {
+        "record_type": "run_header",
+        "run_id": report_id,
+        "contract_id": contract_id,
+        "snapshot_id": snapshot_id,
+        "run_timestamp": now.isoformat(),
+        "violation_count": len(violation_rows),
+    }
+    with open(VIOLATION_LOG_PATH, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(run_header, ensure_ascii=False) + "\n")
         for row in violation_rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-    print(f"[runner] Violation log written: {VIOLATION_LOG_PATH} ({len(violation_rows)} entries)")
+    print(f"[runner] Violation log appended: {VIOLATION_LOG_PATH} ({len(violation_rows)} entries)")
 
     # Build report
     report = {
