@@ -1228,6 +1228,16 @@ def main(argv: list[str] | None = None) -> int:
             "so drift is always measured against a human-approved snapshot."
         ),
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help=(
+            "Preview violations and report without writing to disk. "
+            "Skips writing report JSON, violation log, and baseline updates. "
+            "Useful for CI to detect issues before persisting results."
+        ),
+    )
     args = parser.parse_args(argv)
 
     contract_path = _safe_path(args.contract)
@@ -1365,20 +1375,24 @@ def main(argv: list[str] | None = None) -> int:
         for result in all_results
         if result["status"] != "PASS"
     ]
-    VIOLATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    run_header = {
-        "record_type": "run_header",
-        "run_id": report_id,
-        "contract_id": contract_id,
-        "snapshot_id": snapshot_id,
-        "run_timestamp": now.isoformat(),
-        "violation_count": len(violation_rows),
-    }
-    with open(VIOLATION_LOG_PATH, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps(run_header, ensure_ascii=False) + "\n")
-        for row in violation_rows:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-    logger.info("Violation log appended: %s (%d entries)", VIOLATION_LOG_PATH, len(violation_rows))
+    
+    if not args.dry_run:
+        VIOLATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        run_header = {
+            "record_type": "run_header",
+            "run_id": report_id,
+            "contract_id": contract_id,
+            "snapshot_id": snapshot_id,
+            "run_timestamp": now.isoformat(),
+            "violation_count": len(violation_rows),
+        }
+        with open(VIOLATION_LOG_PATH, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(run_header, ensure_ascii=False) + "\n")
+            for row in violation_rows:
+                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        logger.info("Violation log appended: %s (%d entries)", VIOLATION_LOG_PATH, len(violation_rows))
+    else:
+        logger.info("DRY-RUN: violation log NOT written (%d violations detected)", len(violation_rows))
 
     # Build report
     report = {
@@ -1398,16 +1412,24 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     # Write report
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as fh:
-        json.dump(report, fh, indent=2, ensure_ascii=False)
-    logger.info("Report written: %s", output_path)
+    if not args.dry_run:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as fh:
+            json.dump(report, fh, indent=2, ensure_ascii=False)
+        logger.info("Report written: %s", output_path)
+    else:
+        logger.info("DRY-RUN: report NOT written to %s", output_path)
 
     # Save baselines:
     #   - first run: always write (no golden baseline exists yet)
     #   - subsequent runs: only write when --promote-baselines is explicitly passed,
     #     so a regression cannot silently clear its own evidence
-    if is_first_run and new_baselines:
+    #   - dry-run mode: never write
+    if args.dry_run:
+        logger.info(
+            "DRY-RUN: baselines NOT updated (pass --promote-baselines to overwrite %s)", BASELINES_PATH
+        )
+    elif is_first_run and new_baselines:
         save_baselines(new_baselines)
         logger.info("Initial baselines saved to %s", BASELINES_PATH)
     elif new_baselines and args.promote_baselines:
