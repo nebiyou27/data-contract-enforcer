@@ -71,6 +71,9 @@ where   = ["."]
 include = ["contracts*"]
 exclude = ["venv*", "tests*"]
 
+[tool.setuptools.package-data]
+contracts = ["*.yaml"]
+
 # ---------------------------------------------------------------------------
 # Pytest configuration
 # ---------------------------------------------------------------------------

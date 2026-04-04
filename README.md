@@ -393,6 +393,18 @@ Field-level overrides live under `enforcement.field_rules` in the contract YAML 
 
 ---
 
+### Safe Extension Guide
+
+When adding new behavior, prefer config-driven changes over code changes where possible:
+
+1. Put new remediation phrasing in `contracts/remediation_rules.yaml` instead of hardcoding it in the CLI.
+2. Add or refine contract-specific thresholds in `enforcement.field_rules` and registry-specific overrides in `validation_overrides.field_rules`.
+3. Add a focused test for the new rule or override path before expanding the implementation.
+
+This keeps team-owned policy in YAML and keeps the Python code focused on execution.
+
+---
+
 ## CLI Reference
 
 ### Quick individual commands

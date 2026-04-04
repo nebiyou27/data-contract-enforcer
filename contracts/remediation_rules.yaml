@@ -1,0 +1,10 @@
+version: 1
+default: Review `{label}` and inspect the producing pipeline for the failing `{check_type}` check.
+exact:
+  schema_missing: Restore `{label}` in the source data or intentionally remove it from the contract, then regenerate and rerun validation.
+  schema_new_column: Decide whether `{label}` is an intentional addition. If yes, add it to the contract; if not, drop it from the producer output.
+  required: Investigate upstream null handling for `{label}` and backfill or reject missing values before the contract boundary.
+  type: Align the producer cast for `{label}` with the contract type, or update the contract if the semantic type changed.
+  enum: Normalize unexpected values for `{label}` or extend the allowed enum when the new value is legitimate.
+prefix:
+  drift_: Verify whether `{label}` changed intentionally. If the new distribution is expected, update the baseline; otherwise inspect the producer for regressions.
