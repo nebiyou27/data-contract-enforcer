@@ -880,6 +880,101 @@ _DRIFT_CHECKS = (
 
 
 # ---------------------------------------------------------------------------
+# SLA / freshness check
+# ---------------------------------------------------------------------------
+
+
+def check_freshness(
+    contract_id: str,
+    sla_cfg: dict,
+    frames: dict[str, "pd.DataFrame"],
+    now: "datetime",
+) -> dict | None:
+    """Check that the most recent timestamp in the designated column is recent enough.
+
+    Contract SLA block (under ``sla.freshness``):
+      table:           name of the table whose timestamp to check  (required)
+      timestamp_field: column name containing ISO 8601 timestamps  (required)
+      warn_after_hours: emit WARN when newest record is older than N hours  (default 24)
+      fail_after_hours: emit FAIL when newest record is older than N hours  (default 72)
+
+    Returns a check-result dict, or None when the SLA block is absent / incomplete.
+    """
+    table = sla_cfg.get("table")
+    ts_field = sla_cfg.get("timestamp_field")
+    if not table or not ts_field:
+        return None
+
+    warn_h = float(sla_cfg.get("warn_after_hours", 24))
+    fail_h = float(sla_cfg.get("fail_after_hours", 72))
+    cid = f"{contract_id}.{table}.{ts_field}.freshness"
+
+    df = frames.get(table)
+    if df is None or df.empty or ts_field not in df.columns:
+        return _result(
+            cid, ts_field, "freshness", "ERROR",
+            "column missing or table empty", f"data ≤ {warn_h}h old",
+            "HIGH",
+            message=(
+                f"Freshness check skipped: table '{table}' or column "
+                f"'{ts_field}' not found in data"
+            ),
+        )
+
+    series = df[ts_field].dropna().astype(str)
+    if series.empty:
+        return _result(
+            cid, ts_field, "freshness", "ERROR",
+            "all nulls", f"data ≤ {warn_h}h old",
+            "HIGH",
+            message=f"Freshness check: '{ts_field}' is entirely null",
+        )
+
+    # Parse timestamps; drop unparseable values
+    parsed = pd.to_datetime(series, errors="coerce", utc=True).dropna()
+    if parsed.empty:
+        return _result(
+            cid, ts_field, "freshness", "ERROR",
+            "no parseable timestamps", f"data ≤ {warn_h}h old",
+            "HIGH",
+            message=f"Freshness check: no parseable ISO 8601 values in '{ts_field}'",
+        )
+
+    newest = parsed.max()
+    age_hours = (now - newest).total_seconds() / 3600
+
+    actual = f"newest={newest.isoformat()}, age={age_hours:.1f}h"
+    expected = f"age ≤ {warn_h}h (warn) / ≤ {fail_h}h (fail)"
+
+    if age_hours > fail_h:
+        return _result(
+            cid, ts_field, "freshness", "FAIL",
+            actual, expected, "HIGH",
+            message=(
+                f"Data freshness FAIL: newest '{ts_field}' is {age_hours:.1f}h old "
+                f"(threshold {fail_h}h)"
+            ),
+        )
+    if age_hours > warn_h:
+        return _result(
+            cid, ts_field, "freshness", "WARN",
+            actual, expected, "MEDIUM",
+            message=(
+                f"Data freshness WARN: newest '{ts_field}' is {age_hours:.1f}h old "
+                f"(warn threshold {warn_h}h)"
+            ),
+        )
+    return _result(
+        cid, ts_field, "freshness", "PASS",
+        actual, expected, "LOW",
+        message=(
+            f"Data freshness OK: newest '{ts_field}' is {age_hours:.1f}h old "
+            f"(within {warn_h}h warn threshold)"
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Baseline management
 # ---------------------------------------------------------------------------
 
@@ -1196,6 +1291,24 @@ def main(argv: list[str] | None = None) -> int:
 
         with tracer.start_as_current_span("contracts.cross_table_checks"):
             all_results.extend(run_cross_table_checks(frames))
+
+        # SLA / freshness check (contract-level, runs once per contract)
+        freshness_cfg = contract.get("sla", {}).get("freshness", {})
+        if freshness_cfg:
+            with tracer.start_as_current_span("contracts.freshness_check"):
+                freshness_result = check_freshness(contract_id, freshness_cfg, frames, now)
+            if freshness_result:
+                all_results.append(freshness_result)
+                logger.info(
+                    "Freshness check: status=%s %s",
+                    freshness_result["status"],
+                    freshness_result["message"],
+                )
+        else:
+            logger.debug(
+                "No sla.freshness block in contract '%s' — freshness check skipped",
+                contract_id,
+            )
 
     # Tally
     passed = sum(1 for r in all_results if r["status"] == "PASS")

@@ -102,6 +102,12 @@ quality:
     severity: warning
     query: SELECT COUNT(*) FROM documents WHERE processing_time_ms > 600000
     mustBe: 0
+sla:
+  freshness:
+    table: documents
+    timestamp_field: extracted_at
+    warn_after_hours: 24
+    fail_after_hours: 72
 lineage:
   inputPorts:
   - type: batch_extraction

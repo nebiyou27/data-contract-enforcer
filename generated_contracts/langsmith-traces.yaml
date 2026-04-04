@@ -163,6 +163,12 @@ quality:
     severity: error
     query: SELECT COUNT(*) FROM trace_nodes WHERE trace_project_id IS NULL
     mustBe: 0
+sla:
+  freshness:
+    table: trace_nodes
+    timestamp_field: start_time
+    warn_after_hours: 24
+    fail_after_hours: 72
 lineage:
   inputPorts:
   - type: trace_export

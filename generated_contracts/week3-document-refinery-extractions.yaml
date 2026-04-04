@@ -369,6 +369,12 @@ quality:
     severity: error
     query: SELECT COUNT(*) FROM entities WHERE canonical_value IS NULL
     mustBe: 0
+sla:
+  freshness:
+    table: documents
+    timestamp_field: extracted_at
+    warn_after_hours: 24
+    fail_after_hours: 72
 lineage:
   inputPorts:
   - type: batch_extraction
