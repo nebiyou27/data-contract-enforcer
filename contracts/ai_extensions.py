@@ -320,10 +320,10 @@ def check_prompt_input_schema(
                 }
             )
 
-    # Write quarantine file
+    # Append to quarantine file — never overwrite so prior violations survive re-runs
     if quarantine_records:
         QUARANTINE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(QUARANTINE_PATH, "w", encoding="utf-8") as fh:
+        with open(QUARANTINE_PATH, "a", encoding="utf-8") as fh:
             for qr in quarantine_records:
                 fh.write(json.dumps(qr, ensure_ascii=False) + "\n")
 
