@@ -22,6 +22,7 @@ import argparse
 import json
 import logging
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -372,24 +373,52 @@ def annotate_ambiguous_columns_with_llm(
         f"No markdown, only valid JSON."
     )
 
-    try:
-        client = _anthropic.Anthropic()
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = message.content[0].text.strip()
-        return json.loads(raw)
-    except Exception as exc:
-        logger.warning("LLM annotation failed: %s — using fallback descriptions", exc)
-        return {
-            p["name"]: (
-                f"[LLM annotation failed] High-cardinality string column "
-                f"'{p['name']}' with {p['cardinality']} unique values."
+    # Retry with exponential backoff: up to 3 attempts, 30 s hard timeout per call.
+    # Retryable: rate-limit (429), transient server errors (5xx), timeout, connection.
+    _RETRYABLE = (
+        _anthropic.RateLimitError,
+        _anthropic.APIStatusError,
+        _anthropic.APITimeoutError,
+        _anthropic.APIConnectionError,
+    )
+    _LLM_TIMEOUT = 30.0   # seconds per attempt
+    _MAX_ATTEMPTS = 3
+    client = _anthropic.Anthropic(timeout=_LLM_TIMEOUT)
+
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            message = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=512,
+                messages=[{"role": "user", "content": prompt}],
             )
-            for p in ambiguous
-        }
+            raw = message.content[0].text.strip()
+            return json.loads(raw)
+        except _RETRYABLE as exc:
+            if attempt == _MAX_ATTEMPTS:
+                logger.warning(
+                    "LLM annotation failed after %d attempts: %s — using fallback descriptions",
+                    _MAX_ATTEMPTS, exc,
+                )
+                break
+            wait = 2 ** (attempt - 1)  # 1 s, 2 s, then give up
+            logger.warning(
+                "LLM call failed (attempt %d/%d): %s — retrying in %ds",
+                attempt, _MAX_ATTEMPTS, exc, wait,
+            )
+            time.sleep(wait)
+        except Exception as exc:
+            # Non-retryable (auth error, bad response JSON, etc.) — fail fast
+            logger.warning("LLM annotation failed: %s — using fallback descriptions", exc)
+            break
+
+    return {
+        p["name"]: (
+            f"[LLM annotation failed] High-cardinality string column "
+            f"'{p['name']}' with {p['cardinality']} unique values."
+        )
+        for p in ambiguous
+    }
 
 
 # --- Stage 3: Profiles -> Bitol field clauses ---------------------------------
