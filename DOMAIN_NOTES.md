@@ -227,3 +227,19 @@ registry:
 3. **Negotiate a new contract version** — bump `info.version` and let subscribers pin to the old version during transition
 
 Without this requirement, a gate that only checks for field removal can be bypassed by convincing the gate that "no breaking fields were touched." The registry update requirement makes the process auditable: the git history of `subscriptions.yaml` is the record of every schema negotiation.
+
+---
+
+## Q12. Why are enforcement thresholds in a config file rather than hardcoded?
+
+All 21 thresholds — drift z-scores, variance ratios, violation rate limits, enum cardinality limits, health score penalties — are collected in `contracts/config.py` as an `EnforcerConfig` frozen dataclass, each overridable via an `ECE_*` environment variable.
+
+Three design reasons:
+
+1. **Different environments have different tolerances.** A 2σ drift threshold that is appropriate in production may be too tight in a staging environment that replays synthetic data. A CI pipeline running against a 10-record fixture will have different baseline variance than a production run with 44,000 records. Hardcoded thresholds force every environment to use production-calibrated values.
+
+2. **Tuning without a deployment.** When a violation rate threshold needs adjusting after an incident — for example, temporarily raising `ECE_VIOLATION_RATE_THRESHOLD` while a LLM output schema is being migrated — an operator can change it via env var without modifying source code, without triggering a code review, and without a full deploy cycle.
+
+3. **Test isolation.** Unit and integration tests can construct `EnforcerConfig(drift_z_warn=0.1)` directly to force a WARN without needing to manufacture extreme data. Tests never need to monkeypatch module globals or mutate the singleton — they pass a typed config object to the function under test. This is why the module exposes a singleton `config` (for production code) but also exports the class (for tests).
+
+The TypedDicts (`CheckResult`, `DriftBaseline`, `SubscriptionEntry`, etc.) in the same file provide typed shapes for the core data structures. They are not enforced at runtime — Python's type system is structural — but they enable static analysis tools (mypy, pyright) to catch structural mismatches at development time, before a mismatched field name propagates into a validation report or a violation log entry.

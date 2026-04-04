@@ -113,6 +113,7 @@ data-contract-enforcer/
 |
 |-- contracts/
 |   |-- __init__.py
+|   |-- config.py             # EnforcerConfig dataclass + TypedDicts; all ECE_* thresholds
 |   |-- generator.py          # 4-stage contract generator
 |   |-- runner.py             # Contract validation runner + producer-side evolution gate
 |   |-- attributor.py         # Registry-first blast-radius attribution
@@ -124,6 +125,19 @@ data-contract-enforcer/
 |   |-- evolution_gate.py     # Pre-deploy gate — blocks breaking schema changes
 |   |-- quarantine_manager.py # Review and retry quarantined records
 |   +-- log_config.py         # Structured JSON logging + optional OTEL trace export
+|
+|-- tests/
+|   |-- test_integration.py          # End-to-end + failure-scenario integration tests
+|   |-- test_ai_extensions.py        # AI extension unit tests
+|   |-- test_attributor.py           # Attribution + blast-radius tests
+|   |-- test_baseline_manager.py     # Baseline lifecycle tests
+|   |-- test_drift_checks.py         # Drift detection threshold tests
+|   |-- test_runner_adversarial.py   # Adversarial validation scenarios
+|   |-- test_schema_analyzer.py      # Schema diff + classification tests
+|   +-- test_schema_evolution_gate.py # Evolution gate unit tests
+|
+|-- .github/
+|   +-- workflows/validate.yml  # CI: tests, contract validation gate, evolution gate, report
 |
 |-- generated_contracts/
 |   |-- week3-document-refinery-extractions.yaml
@@ -162,7 +176,8 @@ data-contract-enforcer/
 |-- enforcer_report/report_data.json      # Machine-generated report with health score
 |-- batch.yaml                            # Batch runner manifest
 |-- pyproject.toml                        # Package config + CLI entry points
-|-- INSTALL.md                            # Full operator runbook
+|-- INSTALL.md                            # Installation + first-run walkthrough
+|-- RUNBOOK.md                            # On-call operator playbook (P1–P7 incidents)
 |-- DOMAIN_NOTES.md                       # Domain context and design decisions
 +-- .gitignore
 ```
@@ -173,6 +188,7 @@ data-contract-enforcer/
 
 | Artifact | Status | Notes |
 |---|---:|---|
+| contracts/config.py | ✅ | EnforcerConfig dataclass + TypedDicts; all ECE_* thresholds |
 | contracts/generator.py | ✅ | Runnable contract generator |
 | contracts/runner.py | ✅ | Runnable validation runner |
 | contracts/attributor.py | ✅ | Produces blame chain + blast radius |
@@ -193,8 +209,11 @@ data-contract-enforcer/
 | outputs/week3/extractions.jsonl | ✅ | 38 documents (real data) |
 | outputs/week4/lineage_snapshots.jsonl | ✅ | 96 nodes, 80 edges (real data) |
 | outputs/week5/events.jsonl | ✅ | 1,198 events (real data) |
+| tests/test_integration.py | ✅ | 21 integration + failure-scenario tests (318 total) |
+| .github/workflows/validate.yml | ✅ | CI: tests, contract gate, evolution gate, health score |
 | README.md | ✅ | Fresh-clone run instructions |
-| INSTALL.md | ✅ | Operator runbook with full CLI reference |
+| INSTALL.md | ✅ | Installation + first-run walkthrough |
+| RUNBOOK.md | ✅ | On-call operator playbook (P1–P7 incidents + ECE_* reference) |
 | DOMAIN_NOTES.md | ✅ | Finalized domain notes |
 
 ---
@@ -237,7 +256,8 @@ After install, these commands are available on your `$PATH`:
 | `contracts-evolution-gate` | Pre-deploy gate — blocks breaking schema changes |
 | `contracts-quarantine` | Review and retry quarantined records |
 
-> See [INSTALL.md](INSTALL.md) for the full operator runbook: environment variables, first-run walkthrough, baseline management, logging, tracing, and troubleshooting.
+> See [INSTALL.md](INSTALL.md) for the full installation walkthrough, baseline management, logging, tracing, and troubleshooting.
+> See [RUNBOOK.md](RUNBOOK.md) for the on-call operator playbook — incident responses (P1–P7) and the full `ECE_*` threshold reference.
 
 ---
 
@@ -973,4 +993,4 @@ Each generator run appends a new timestamped snapshot to `schema_snapshots/{cont
 
 ---
 
-*Validation data current as of 2026-04-01. See [thursday_report.md](thursday_report.md) for full run analysis and [INSTALL.md](INSTALL.md) for the operator runbook.*
+*Validation data current as of 2026-04-01. See [thursday_report.md](thursday_report.md) for full run analysis, [INSTALL.md](INSTALL.md) for the installation walkthrough, and [RUNBOOK.md](RUNBOOK.md) for the on-call operator playbook.*
