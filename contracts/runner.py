@@ -1094,6 +1094,16 @@ def main(argv: list[str] | None = None) -> int:
         default="AUDIT",
         help="Validation mode: AUDIT, WARN, or ENFORCE",
     )
+    parser.add_argument(
+        "--promote-baselines",
+        action="store_true",
+        default=False,
+        help=(
+            "Write the stats from this run as the new golden baseline. "
+            "Without this flag, baselines are never overwritten after the initial creation, "
+            "so drift is always measured against a human-approved snapshot."
+        ),
+    )
     args = parser.parse_args(argv)
 
     now = datetime.now(timezone.utc)
@@ -1223,15 +1233,21 @@ def main(argv: list[str] | None = None) -> int:
         json.dump(report, fh, indent=2, ensure_ascii=False)
     print(f"[runner] Report written: {out_path}")
 
-    # Save baselines (create on first run, update on subsequent)
+    # Save baselines:
+    #   - first run: always write (no golden baseline exists yet)
+    #   - subsequent runs: only write when --promote-baselines is explicitly passed,
+    #     so a regression cannot silently clear its own evidence
     if is_first_run and new_baselines:
         save_baselines(new_baselines)
         print(f"[runner] Initial baselines saved to {BASELINES_PATH}")
-    elif new_baselines:
-        # Merge new stats into existing baselines
+    elif new_baselines and args.promote_baselines:
         baselines.update(new_baselines)
         save_baselines(baselines)
-        print(f"[runner] Baselines updated at {BASELINES_PATH}")
+        print(f"[runner] Baselines promoted to {BASELINES_PATH}")
+    elif new_baselines:
+        print(
+            f"[runner] Baselines NOT updated (pass --promote-baselines to overwrite {BASELINES_PATH})"
+        )
 
     # Exit code depends on the requested operating mode.
     #   AUDIT   — log only, always exit 0
