@@ -61,6 +61,7 @@ try:
         load_lineage_graph,
         load_registry,
     )
+    from contracts.schema_analyzer import diff_schemas, load_schema
     from contracts.log_config import configure_logging, configure_telemetry, get_tracer
 except ModuleNotFoundError:
     # Direct script invocation: add project root to path
@@ -84,6 +85,7 @@ except ModuleNotFoundError:
         load_lineage_graph,
         load_registry,
     )
+    from contracts.schema_analyzer import diff_schemas, load_schema
     from contracts.log_config import configure_logging, configure_telemetry, get_tracer
 
 # ---------------------------------------------------------------------------
@@ -1010,6 +1012,29 @@ def save_baselines(baselines: dict) -> None:
         json.dump(baselines, fh, indent=2, ensure_ascii=False)
 
 
+def load_previous_schema(contract_id: str) -> dict[str, Any] | None:
+    """Load the previous (baseline) schema from snapshots directory.
+    
+    Returns the second-most-recent snapshot if it exists, otherwise None.
+    """
+    snapshots_dir = Path("schema_snapshots") / contract_id
+    if not snapshots_dir.exists():
+        return None
+    
+    # Find all YAML snapshots (timestamped files like 20250101T000000Z.yaml)
+    candidates = sorted(snapshots_dir.glob("*.yaml"))
+    if len(candidates) < 2:
+        return None
+    
+    try:
+        # Load the second-to-last (baseline) snapshot
+        prev_path = candidates[-2]
+        return load_schema(str(prev_path))
+    except Exception as e:
+        logger.warning("Failed to load previous schema from %s: %s", snapshots_dir, e)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Orchestrator: run all checks for one table
 # ---------------------------------------------------------------------------
@@ -1370,6 +1395,23 @@ def main(argv: list[str] | None = None) -> int:
         logger.warning("Schema missing columns: %s", missing_text)
         logger.info("Schema new columns: %s", new_text)
 
+    # Compute schema diff when evolution is detected
+    schema_diff = None
+    if schema_summary["missing_columns"] or schema_summary["new_columns"]:
+        previous_schema = load_previous_schema(contract_id)
+        if previous_schema is not None:
+            try:
+                schema_diff = diff_schemas(previous_schema, contract)
+                logger.info(
+                    "Schema diff computed: verdict=%s, breaking=%d, compatible=%d",
+                    schema_diff.get("verdict"),
+                    schema_diff.get("total_breaking", 0),
+                    schema_diff.get("total_compatible", 0),
+                )
+            except Exception as e:
+                logger.warning("Failed to compute schema diff: %s", e)
+                schema_diff = None
+
     violation_rows = [
         attribute_violation(result, contract_id, registry, lineage_graph, snapshot_id)
         for result in all_results
@@ -1410,6 +1452,10 @@ def main(argv: list[str] | None = None) -> int:
         "results": all_results,
         "violation_log": str(VIOLATION_LOG_PATH),
     }
+    
+    # Add schema diff if available
+    if schema_diff is not None:
+        report["schema_diff"] = schema_diff
 
     # Write report
     if not args.dry_run:
