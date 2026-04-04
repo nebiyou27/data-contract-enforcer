@@ -64,25 +64,30 @@ class AttributeViolationTest(unittest.TestCase):
     # Required output fields are present
     # ------------------------------------------------------------------
 
-    def test_required_fields_present(self) -> None:
+    def test_required_top_level_fields_present(self) -> None:
         result = self._attributed()
-        for field in ("direct_subscribers", "downstream_nodes_from_lineage", "contamination_depth", "note"):
+        for field in ("blast_radius", "blame_chain", "violation_id", "note"):
             self.assertIn(field, result, f"Missing required field: {field}")
+
+    def test_blast_radius_subfields_present(self) -> None:
+        br = self._attributed()["blast_radius"]
+        for field in ("direct_subscribers", "downstream_pipelines", "lineage_nodes", "contamination_depth"):
+            self.assertIn(field, br, f"blast_radius missing: {field}")
 
     # ------------------------------------------------------------------
     # Registry is the primary blast-radius source
     # ------------------------------------------------------------------
 
     def test_direct_subscribers_from_registry(self) -> None:
-        result = self._attributed()
-        self.assertEqual(1, len(result["direct_subscribers"]))
-        sub = result["direct_subscribers"][0]
+        br = self._attributed()["blast_radius"]
+        self.assertEqual(1, len(br["direct_subscribers"]))
+        sub = br["direct_subscribers"][0]
         self.assertEqual("Week 4", sub["target"])
         self.assertEqual("week4-lineage-graph", sub["target_contract"])
 
     def test_direct_subscribers_carry_breaking_fields(self) -> None:
-        result = self._attributed()
-        fields = [bf["field"] for bf in result["direct_subscribers"][0]["breaking_fields"]]
+        br = self._attributed()["blast_radius"]
+        fields = [bf["field"] for bf in br["direct_subscribers"][0]["breaking_fields"]]
         self.assertIn("extracted_facts.confidence", fields)
         self.assertIn("documents.fact_count", fields)
 
@@ -91,22 +96,34 @@ class AttributeViolationTest(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_contamination_depth_traverses_registry_graph(self) -> None:
-        # Week 3 â†’ Week 4 (depth 1) â†’ Week 7 (depth 2)
-        result = self._attributed()
-        self.assertEqual(2, result["contamination_depth"])
+        # Week 3 -> Week 4 (depth 1) -> Week 7 (depth 2)
+        br = self._attributed()["blast_radius"]
+        self.assertEqual(2, br["contamination_depth"])
 
     def test_contamination_depth_zero_for_leaf_source(self) -> None:
         # Week 7 has no outgoing subscriptions -- depth must be 0
         result = attribute_violation(VIOLATION_STUB, "week7-trust-boundary", REGISTRY)
-        self.assertEqual(0, result["contamination_depth"])
+        self.assertEqual(0, result["blast_radius"]["contamination_depth"])
 
     # ------------------------------------------------------------------
     # Lineage enrichment is additive (no lineage graph passed here)
     # ------------------------------------------------------------------
 
-    def test_downstream_nodes_empty_without_lineage_graph(self) -> None:
-        result = self._attributed()
-        self.assertEqual([], result["downstream_nodes_from_lineage"])
+    def test_lineage_nodes_empty_without_lineage_graph(self) -> None:
+        br = self._attributed()["blast_radius"]
+        self.assertEqual([], br["lineage_nodes"])
+
+    # ------------------------------------------------------------------
+    # violation_id is a stable UUID5
+    # ------------------------------------------------------------------
+
+    def test_violation_id_is_stable_uuid5(self) -> None:
+        r1 = self._attributed()
+        r2 = self._attributed()
+        self.assertEqual(r1["violation_id"], r2["violation_id"])
+        # Must be a valid UUID string
+        import uuid
+        uuid.UUID(r1["violation_id"])
 
     # ------------------------------------------------------------------
     # Note field describes the attribution
@@ -136,8 +153,9 @@ class AttributeViolationTest(unittest.TestCase):
 
     def test_unknown_contract_id_returns_empty_attribution(self) -> None:
         result = attribute_violation(VIOLATION_STUB, "nonexistent-contract", REGISTRY)
-        self.assertEqual([], result["direct_subscribers"])
-        self.assertEqual(0, result["contamination_depth"])
+        br = result["blast_radius"]
+        self.assertEqual([], br["direct_subscribers"])
+        self.assertEqual(0, br["contamination_depth"])
 
 
 class LoadRegistryNewSchemaTest(unittest.TestCase):
