@@ -51,6 +51,7 @@ try:
         flatten_lineage_edges,
         flatten_lineage_nodes,
         flatten_trace_nodes,
+        iter_jsonl,
         load_jsonl,
     )
     from contracts.attributor import (
@@ -73,6 +74,7 @@ except ModuleNotFoundError:
         flatten_lineage_edges,
         flatten_lineage_nodes,
         flatten_trace_nodes,
+        iter_jsonl,
         load_jsonl,
     )
     from contracts.attributor import (
@@ -1053,13 +1055,17 @@ TABLE_FLATTENERS = {
 }
 
 
-def flatten_all(records: list[dict], table_names: list[str]) -> dict[str, pd.DataFrame]:
-    """Flatten records for each table referenced in the contract."""
+def flatten_all(source_path: str, table_names: list[str]) -> dict[str, pd.DataFrame]:
+    """Stream-flatten the source JSONL for each table referenced in the contract.
+
+    Each table does its own sequential pass through the file via iter_jsonl so
+    peak RAM is O(one DataFrame) rather than O(entire file).
+    """
     frames: dict[str, pd.DataFrame] = {}
     for name in table_names:
         flattener = TABLE_FLATTENERS.get(name)
         if flattener:
-            frames[name] = flattener(records)
+            frames[name] = flattener(iter_jsonl(source_path))
         else:
             # Unknown table -- create empty DF; checks will return ERROR
             frames[name] = pd.DataFrame()
@@ -1125,16 +1131,16 @@ def main(argv: list[str] | None = None) -> int:
     registry_path = registry_section.get("path") or str(DEFAULT_REGISTRY_PATH)
     registry = load_registry(registry_path)
 
-    # Load + flatten data
+    # Load + flatten data (streaming — never materialises the full file in RAM)
     logger.info("Loading data: %s", args.data)
-    records = load_jsonl(args.data)
-    logger.info("%d source documents loaded", len(records))
+    record_count = sum(1 for _ in iter_jsonl(args.data))
+    logger.info("%d source documents loaded", record_count)
 
     snapshot_id = sha256_file(args.data)
 
     table_defs = contract.get("schema", {}).get("tables", [])
     table_names = [t["name"] for t in table_defs]
-    frames = flatten_all(records, table_names)
+    frames = flatten_all(args.data, table_names)
 
     lineage_input = next(
         (

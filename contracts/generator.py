@@ -53,7 +53,11 @@ logger = logging.getLogger(__name__)
 
 
 def load_jsonl(path: str) -> list[dict]:
-    """Read a JSONL file and return a list of dicts."""
+    """Read a JSONL file and return a list of dicts.
+
+    NOTE: loads the entire file into RAM.  For large files prefer
+    ``iter_jsonl`` which yields one record at a time.
+    """
     records: list[dict] = []
     with open(path, "r", encoding="utf-8") as fh:
         for line in fh:
@@ -61,6 +65,22 @@ def load_jsonl(path: str) -> list[dict]:
             if line:
                 records.append(json.loads(line))
     return records
+
+
+def iter_jsonl(path: str):
+    """Yield one parsed JSON record at a time from a JSONL file.
+
+    Memory footprint is O(1 record) regardless of file size, making this
+    safe for multi-GB extraction files.  Each call opens the file from the
+    start, so callers that need multiple passes (e.g. flatten_documents +
+    flatten_facts on the same source) should call iter_jsonl separately for
+    each pass rather than materialising the full list.
+    """
+    with open(path, "r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                yield json.loads(line)
 
 
 def _json_stringify(value: Any) -> str | None:
@@ -959,12 +979,15 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging()
 
     # -- Stage 1 --------------------------------------------------------------
+    # Stream the source file rather than loading it all into RAM.
+    # Each flatten call does its own sequential pass so peak memory is
+    # O(one DataFrame) rather than O(entire file).
     logger.info("Stage 1 -- Loading %s ...", args.source)
-    records = load_jsonl(args.source)
-    logger.info("Loaded %d source documents", len(records))
+    record_count = sum(1 for _ in iter_jsonl(args.source))
+    logger.info("Loaded %d source documents", record_count)
 
     if "langsmith" in args.contract_id.lower():
-        df_trace = flatten_trace_nodes(records)
+        df_trace = flatten_trace_nodes(iter_jsonl(args.source))
         logger.info("Flattened -> trace_nodes=%dr x %dc", len(df_trace), len(df_trace.columns))
 
         # -- Stage 2 ----------------------------------------------------------
@@ -990,9 +1013,10 @@ def main(argv: list[str] | None = None) -> int:
 
         row_counts = {"trace_nodes": len(df_trace)}
     else:
-        df_docs = flatten_documents(records)
-        df_facts = flatten_facts(records)
-        df_entities = flatten_entities(records)
+        # Three separate streaming passes — each holds at most one DataFrame in RAM.
+        df_docs = flatten_documents(iter_jsonl(args.source))
+        df_facts = flatten_facts(iter_jsonl(args.source))
+        df_entities = flatten_entities(iter_jsonl(args.source))
 
         logger.info(
             "Flattened -> documents=%dr x %dc  facts=%dr x %dc  entities=%dr x %dc",
@@ -1057,7 +1081,7 @@ def main(argv: list[str] | None = None) -> int:
         tables=tables,
         lineage_records=lineage_records,
         registry=registry,
-        record_count=len(records),
+        record_count=record_count,
         source_path=args.source,
         row_counts=row_counts,
     )
