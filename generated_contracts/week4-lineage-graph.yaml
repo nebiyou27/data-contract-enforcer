@@ -108,6 +108,18 @@ sla:
     timestamp_field: extracted_at
     warn_after_hours: 24
     fail_after_hours: 72
+enforcement:
+  validation_mode: ENFORCE
+  skip_checks: []
+  field_rules:
+  - field: fact_count
+    table: documents
+    drift_z_warn: 1.5
+    drift_z_fail: 2.5
+  - field: entity_count
+    table: documents
+    drift_z_warn: 1.5
+    drift_z_fail: 2.5
 lineage:
   inputPorts:
   - type: batch_extraction

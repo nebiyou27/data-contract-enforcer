@@ -113,13 +113,14 @@ data-contract-enforcer/
 |
 |-- contracts/
 |   |-- __init__.py
-|   |-- config.py             # EnforcerConfig dataclass + TypedDicts; all ECE_* thresholds
+|   |-- config.py             # EnforcerConfig dataclass + TypedDicts (FieldRule, EnforcementConfig)
 |   |-- generator.py          # 4-stage contract generator
 |   |-- runner.py             # Contract validation runner + producer-side evolution gate
 |   |-- attributor.py         # Registry-first blast-radius attribution
 |   |-- schema_analyzer.py    # Diffs snapshots, classifies breaking vs compatible changes
 |   |-- ai_extensions.py      # Embedding drift + prompt/input + output schema checks
 |   |-- report_generator.py   # Aggregates runs into enforcer_report/report_data.json
+|   |-- remediation_generator.py # Builds remediation suggestions from validation reports
 |   |-- baseline_manager.py   # Manage statistical baselines (list / promote / clear)
 |   |-- batch_runner.py       # Run multiple contracts in parallel from a batch manifest
 |   |-- evolution_gate.py     # Pre-deploy gate — blocks breaking schema changes
@@ -380,13 +381,15 @@ All modules use standard exit codes for CI/CD integration:
 
 ### Validation Modes
 
-Pass `--mode` to `contracts-run` or `contracts-run-all` to change enforcement behavior:
+Pass `--mode` to `contracts-run` or `contracts-run-all` to set the default enforcement behavior. A contract-level `enforcement.validation_mode` or registry `validation_overrides.validation_mode` can override it for a specific contract:
 
 | Mode | Behavior |
 |------|---------|
 | `AUDIT` | Report all violations, always exit 0 — use for observability |
 | `WARN` | Warn on violations but exit 0 — use for gradual rollout |
 | `ENFORCE` | Fail hard on any violation — use in CI/CD gates (default) |
+
+Field-level overrides live under `enforcement.field_rules` in the contract YAML and `validation_overrides.field_rules` in `contract_registry/subscriptions.yaml`. They can adjust drift thresholds and skip specific checks for a field/table pair.
 
 ---
 
@@ -417,6 +420,13 @@ contracts-report \
   --validation-reports validation_reports/week3_baseline.json validation_reports/week5_baseline.json \
   --violation-log violation_log/violations.jsonl \
   --output enforcer_report/custom_report.json
+
+# Build remediation suggestions from a validation report
+contracts-remediate \
+  --report validation_reports/week3_baseline.json \
+  --contract generated_contracts/week3-document-refinery-extractions.yaml \
+  --format markdown \
+  --output remediation/week3-remediation.md
 
 # Baseline management
 contracts-baseline list

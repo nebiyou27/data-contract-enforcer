@@ -119,6 +119,112 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+# ---------------------------------------------------------------------------
+# Enforcement config: merge contract + registry overrides
+# ---------------------------------------------------------------------------
+
+
+def load_enforcement_config(contract: dict, registry: dict, contract_id: str) -> dict:
+    """Merge the contract-level ``enforcement`` block with registry subscription overrides.
+
+    Priority rules (highest wins):
+    - ``validation_mode``: last registry subscription that specifies it wins over contract.
+    - ``skip_checks``: union of contract + all subscriptions' skip lists.
+    - ``field_rules``: contract rules are the base; registry rules for a matching field
+      overwrite in-place (last subscription wins per field).
+
+    Args:
+        contract:     Loaded contract YAML dict.
+        registry:     Loaded registry dict (from load_registry()).
+        contract_id:  Contract being validated.
+
+    Returns:
+        Merged ContractEnforcement dict (may be empty when nothing is configured).
+    """
+    contract_enforcement: dict = contract.get("enforcement") or {}
+
+    # Start from a copy of the contract-level config
+    merged_skip: set = set(contract_enforcement.get("skip_checks") or [])
+    merged_mode: str | None = contract_enforcement.get("validation_mode") or None
+    # Deep-copy field_rules so we don't mutate the contract dict
+    merged_field_rules: list[dict] = [
+        dict(rule) for rule in (contract_enforcement.get("field_rules") or [])
+    ]
+
+    # Walk all registry subscriptions for this contract
+    subscriptions = registry.get("subscriptions", [])
+    relevant_subs = [
+        sub for sub in subscriptions
+        if sub.get("contract_id") == contract_id or sub.get("source_contract") == contract_id
+    ]
+
+    for sub in relevant_subs:
+        overrides: dict = sub.get("validation_overrides") or {}
+        if not overrides:
+            continue
+
+        # validation_mode: registry wins
+        if overrides.get("validation_mode"):
+            merged_mode = overrides["validation_mode"]
+
+        # skip_checks: union
+        for ct in (overrides.get("skip_checks") or []):
+            merged_skip.add(ct)
+
+        # field_rules: registry overrides merged into existing rules by field name
+        for reg_rule in (overrides.get("field_rules") or []):
+            reg_field = reg_rule.get("field", "")
+            reg_table = reg_rule.get("table")
+            # Find existing rule with same field (and table if specified)
+            matched = None
+            for existing in merged_field_rules:
+                if existing.get("field") == reg_field:
+                    existing_table = existing.get("table")
+                    if reg_table is None or existing_table is None or existing_table == reg_table:
+                        matched = existing
+                        break
+            if matched is not None:
+                matched.update(reg_rule)
+            else:
+                merged_field_rules.append(dict(reg_rule))
+
+    result: dict[str, Any] = {}
+    if merged_skip:
+        result["skip_checks"] = list(merged_skip)
+    if merged_mode:
+        result["validation_mode"] = merged_mode
+    if merged_field_rules:
+        result["field_rules"] = merged_field_rules
+    return result
+
+
+def _lookup_field_rule(enforcement_cfg: dict, col: str, table: str) -> dict:
+    """Return the first matching field rule for *col* in *table*, or {}."""
+    for rule in (enforcement_cfg.get("field_rules") or []):
+        if rule.get("field") == col:
+            rule_table = rule.get("table")
+            if rule_table is None or rule_table == table:
+                return rule
+    return {}
+
+
+def _should_skip_check(enforcement_cfg: dict, field_rule: dict, check_type: str) -> bool:
+    """Return True when a check is globally or field-level skipped."""
+    global_skip = set(enforcement_cfg.get("skip_checks") or [])
+    field_skip = set(field_rule.get("skip_checks") or [])
+    return check_type in global_skip or check_type in field_skip
+
+
+def _apply_field_rule(result: dict, field_rule: dict) -> dict:
+    """Apply a field-rule severity override to a check result."""
+    severity = field_rule.get("severity")
+    if not severity:
+        return result
+    updated = dict(result)
+    updated["severity"] = severity
+    return updated
+
+
 def _safe_path(user_input: str) -> Path:
     """Resolve a CLI-supplied path and assert it stays within the project root.
 
@@ -633,9 +739,18 @@ def check_drift_mean(
     col: str,
     current_stats: dict,
     baseline_stats: dict,
+    *,
+    overrides: dict | None = None,
 ) -> dict:
-    """Z-score on column mean. WARN >2σ, FAIL >3σ."""
+    """Z-score on column mean. WARN >2σ, FAIL >3σ.
+
+    *overrides* accepts per-field keys ``drift_z_warn`` and ``drift_z_fail``
+    from the contract enforcement block; falls back to global config when absent.
+    """
     cid = f"{table}.{col}.drift_mean"
+    _ov = overrides or {}
+    _z_warn = _ov.get("drift_z_warn") if _ov.get("drift_z_warn") is not None else config.drift_z_warn
+    _z_fail = _ov.get("drift_z_fail") if _ov.get("drift_z_fail") is not None else config.drift_z_fail
 
     baseline_mean = baseline_stats["mean"]
     baseline_stddev = baseline_stats["stddev"]
@@ -657,19 +772,19 @@ def check_drift_mean(
 
     z_score = abs(current_mean - baseline_mean) / baseline_stddev
 
-    if z_score > config.drift_z_fail:
+    if z_score > _z_fail:
         return _result(
             cid, col, "drift_mean", "FAIL",
             f"mean={current_mean} (z={z_score:.2f})",
             f"baseline mean={baseline_mean} ± {baseline_stddev}",
-            "HIGH", message=f"{col}: mean drift z={z_score:.2f} > {config.drift_z_fail}σ",
+            "HIGH", message=f"{col}: mean drift z={z_score:.2f} > {_z_fail}σ",
         )
-    if z_score > config.drift_z_warn:
+    if z_score > _z_warn:
         return _result(
             cid, col, "drift_mean", "WARN",
             f"mean={current_mean} (z={z_score:.2f})",
             f"baseline mean={baseline_mean} ± {baseline_stddev}",
-            "MEDIUM", message=f"{col}: mean drift z={z_score:.2f} > {config.drift_z_warn}σ",
+            "MEDIUM", message=f"{col}: mean drift z={z_score:.2f} > {_z_warn}σ",
         )
     return _result(
         cid, col, "drift_mean", "PASS",
@@ -684,6 +799,8 @@ def check_drift_variance(
     col: str,
     current_stats: dict,
     baseline_stats: dict,
+    *,
+    overrides: dict | None = None,
 ) -> dict | None:
     """Stddev ratio vs baseline. WARN >2× or <0.25×; FAIL >4×.
 
@@ -745,6 +862,8 @@ def check_drift_outliers(
     col: str,
     current_stats: dict,
     baseline_stats: dict,
+    *,
+    overrides: dict | None = None,
 ) -> dict | None:
     """New observed extremes outside the baseline's observed range.
 
@@ -796,12 +915,17 @@ def check_drift_null_fraction(
     col: str,
     current_stats: dict,
     baseline_stats: dict,
+    *,
+    overrides: dict | None = None,
 ) -> dict | None:
     """Null-fraction growth vs baseline.
 
     WARN >5 pp growth; FAIL >20 pp growth.
     Any nulls on a previously fully-populated column are flagged immediately.
     Returns None when either side lacks null_fraction (old baseline format).
+
+    *overrides* accepts per-field keys ``drift_null_warn_pp`` and
+    ``drift_null_fail_pp``; falls back to global config when absent.
     """
     b_nf = baseline_stats.get("null_fraction")
     c_nf = current_stats.get("null_fraction")
@@ -809,10 +933,13 @@ def check_drift_null_fraction(
         return None
 
     cid = f"{table}.{col}.drift_null_fraction"
+    _ov = overrides or {}
+    _null_warn = _ov.get("drift_null_warn_pp") if _ov.get("drift_null_warn_pp") is not None else config.drift_null_warn_pp
+    _null_fail = _ov.get("drift_null_fail_pp") if _ov.get("drift_null_fail_pp") is not None else config.drift_null_fail_pp
     delta = c_nf - b_nf
 
     if b_nf == 0.0 and c_nf > 0.0:
-        status = "FAIL" if c_nf > config.drift_null_fail_pp else "WARN"
+        status = "FAIL" if c_nf > _null_fail else "WARN"
         severity = "HIGH" if status == "FAIL" else "MEDIUM"
         return _result(
             cid, col, "drift_null_fraction", status,
@@ -820,19 +947,19 @@ def check_drift_null_fraction(
             severity,
             message=f"{col}: nulls appeared on previously fully-populated column ({c_nf:.1%} null)",
         )
-    if delta > config.drift_null_fail_pp:
+    if delta > _null_fail:
         return _result(
             cid, col, "drift_null_fraction", "FAIL",
             f"null_fraction={c_nf:.4f} (Δ={delta:+.4f})",
             f"baseline null_fraction={b_nf:.4f}",
-            "HIGH", message=f"{col}: null fraction grew by {delta:.1%} > {config.drift_null_fail_pp:.0%} threshold",
+            "HIGH", message=f"{col}: null fraction grew by {delta:.1%} > {_null_fail:.0%} threshold",
         )
-    if delta > config.drift_null_warn_pp:
+    if delta > _null_warn:
         return _result(
             cid, col, "drift_null_fraction", "WARN",
             f"null_fraction={c_nf:.4f} (Δ={delta:+.4f})",
             f"baseline null_fraction={b_nf:.4f}",
-            "MEDIUM", message=f"{col}: null fraction grew by {delta:.1%} > {config.drift_null_warn_pp:.0%} threshold",
+            "MEDIUM", message=f"{col}: null fraction grew by {delta:.1%} > {_null_warn:.0%} threshold",
         )
     return _result(
         cid, col, "drift_null_fraction", "PASS",
@@ -1062,6 +1189,7 @@ def run_table_checks(
     df: pd.DataFrame,
     baselines: dict,
     contract_id: str,
+    enforcement_cfg: dict | None = None,
 ) -> tuple[list[dict], dict]:
     """Run all structural + statistical checks for a table.
 
@@ -1071,12 +1199,14 @@ def run_table_checks(
     table_stats: dict[str, dict] = {}
     baseline_key = f"{contract_id}/{table_name}"
     table_baseline = baselines.get(baseline_key, {})
+    enforcement_cfg = enforcement_cfg or {}
 
     # Compare schema first so drift is visible before field-level validation.
     results.extend(check_schema_evolution(table_name, fields, df))
 
     for field in fields:
         col = field["name"]
+        field_rule = _lookup_field_rule(enforcement_cfg, col, table_name)
         if col not in df.columns:
             continue
         series = df[col]
@@ -1084,9 +1214,9 @@ def run_table_checks(
         # --- Structural checks ---
 
         # 1. Required
-        if field.get("required"):
+        if field.get("required") and not _should_skip_check(enforcement_cfg, field_rule, "required"):
             try:
-                results.append(check_required(table_name, field, series))
+                results.append(_apply_field_rule(check_required(table_name, field, series), field_rule))
             except Exception as exc:
                 results.append(_result(
                     f"{table_name}.{col}.required", col, "required", "ERROR",
@@ -1094,18 +1224,19 @@ def run_table_checks(
                 ))
 
         # 2. Type match
-        try:
-            results.append(check_type(table_name, field, series))
-        except Exception as exc:
-            results.append(_result(
-                f"{table_name}.{col}.type", col, "type", "ERROR",
-                str(exc), field.get("type", "string"), "CRITICAL", message=str(exc),
-            ))
+        if not _should_skip_check(enforcement_cfg, field_rule, "type"):
+            try:
+                results.append(_apply_field_rule(check_type(table_name, field, series), field_rule))
+            except Exception as exc:
+                results.append(_result(
+                    f"{table_name}.{col}.type", col, "type", "ERROR",
+                    str(exc), field.get("type", "string"), "CRITICAL", message=str(exc),
+                ))
 
         # 3. Enum
-        if "enum" in field:
+        if "enum" in field and not _should_skip_check(enforcement_cfg, field_rule, "enum"):
             try:
-                results.append(check_enum(table_name, field, series))
+                results.append(_apply_field_rule(check_enum(table_name, field, series), field_rule))
             except Exception as exc:
                 results.append(_result(
                     f"{table_name}.{col}.enum", col, "enum", "ERROR",
@@ -1113,9 +1244,9 @@ def run_table_checks(
                 ))
 
         # 4. UUID format
-        if field.get("format") == "uuid":
+        if field.get("format") == "uuid" and not _should_skip_check(enforcement_cfg, field_rule, "format_uuid"):
             try:
-                results.append(check_uuid_format(table_name, field, series))
+                results.append(_apply_field_rule(check_uuid_format(table_name, field, series), field_rule))
             except Exception as exc:
                 results.append(_result(
                     f"{table_name}.{col}.format_uuid", col, "format_uuid", "ERROR",
@@ -1123,9 +1254,9 @@ def run_table_checks(
                 ))
 
         # 5. Date-time format
-        if field.get("format") == "date-time":
+        if field.get("format") == "date-time" and not _should_skip_check(enforcement_cfg, field_rule, "format_datetime"):
             try:
-                results.append(check_datetime_format(table_name, field, series))
+                results.append(_apply_field_rule(check_datetime_format(table_name, field, series), field_rule))
             except Exception as exc:
                 results.append(_result(
                     f"{table_name}.{col}.format_datetime", col, "format_datetime",
@@ -1135,9 +1266,12 @@ def run_table_checks(
         # --- Statistical checks ---
 
         # 6. Min/max range
-        if field.get("minimum") is not None or field.get("maximum") is not None:
+        if (
+            (field.get("minimum") is not None or field.get("maximum") is not None)
+            and not _should_skip_check(enforcement_cfg, field_rule, "range")
+        ):
             try:
-                results.append(check_min_max(table_name, field, series))
+                results.append(_apply_field_rule(check_min_max(table_name, field, series), field_rule))
             except Exception as exc:
                 results.append(_result(
                     f"{table_name}.{col}.range", col, "range", "ERROR",
@@ -1154,10 +1288,15 @@ def run_table_checks(
                 if col_baseline:
                     for drift_fn in _DRIFT_CHECKS:
                         check_type_name = drift_fn.__name__.replace("check_", "")
+                        if _should_skip_check(enforcement_cfg, field_rule, check_type_name):
+                            continue
                         try:
-                            r = drift_fn(table_name, col, stats, col_baseline)
+                            if check_type_name in {"drift_mean", "drift_null_fraction"}:
+                                r = drift_fn(table_name, col, stats, col_baseline, overrides=field_rule)
+                            else:
+                                r = drift_fn(table_name, col, stats, col_baseline)
                             if r is not None:
-                                results.append(r)
+                                results.append(_apply_field_rule(r, field_rule))
                         except Exception as exc:
                             results.append(_result(
                                 f"{table_name}.{col}.{check_type_name}",
@@ -1300,6 +1439,10 @@ def main(argv: list[str] | None = None) -> int:
     registry_section = contract.get("registry") or {}
     registry_path = registry_section.get("path") or str(DEFAULT_REGISTRY_PATH)
     registry = load_registry(registry_path)
+    enforcement_cfg = load_enforcement_config(contract, registry, contract_id)
+    effective_mode = enforcement_cfg.get("validation_mode") or args.mode
+    if effective_mode != args.mode:
+        logger.info("Validation mode overridden by enforcement config: %s -> %s", args.mode, effective_mode)
 
     # Load + flatten data (streaming — never materialises the full file in RAM)
     logger.info("Loading data: %s", data_path)
@@ -1341,7 +1484,7 @@ def main(argv: list[str] | None = None) -> int:
     with tracer.start_as_current_span("contracts.validate") as root_span:
         root_span.set_attribute("contract.id", contract_id)
         root_span.set_attribute("contract.snapshot_id", snapshot_id)
-        root_span.set_attribute("contract.mode", args.mode)
+        root_span.set_attribute("contract.mode", effective_mode)
         root_span.set_attribute("run.id", report_id)
 
         for tdef in table_defs:
@@ -1354,7 +1497,7 @@ def main(argv: list[str] | None = None) -> int:
                 tspan.set_attribute("table.row_count", len(df))
                 tspan.set_attribute("table.field_count", len(fields))
 
-                results, stats = run_table_checks(tname, fields, df, baselines, contract_id)
+                results, stats = run_table_checks(tname, fields, df, baselines, contract_id, enforcement_cfg)
 
             all_results.extend(results)
 
@@ -1463,7 +1606,7 @@ def main(argv: list[str] | None = None) -> int:
         "failed": failed,
         "warned": warned,
         "errored": errored,
-        "mode": args.mode,
+        "mode": effective_mode,
         "schema_summary": schema_summary,
         "results": all_results,
         "violation_log": str(VIOLATION_LOG_PATH),
@@ -1516,9 +1659,9 @@ def main(argv: list[str] | None = None) -> int:
         if r["status"] == "FAIL" and r.get("severity") in ("CRITICAL", "HIGH")
     )
 
-    if args.mode == "AUDIT":
+    if effective_mode == "AUDIT":
         exit_code = 0
-    elif args.mode == "WARN":
+    elif effective_mode == "WARN":
         exit_code = 1 if critical_fails > 0 else 0
     else:  # ENFORCE
         exit_code = 1 if (high_or_critical_fails > 0 or errored > 0) else 0

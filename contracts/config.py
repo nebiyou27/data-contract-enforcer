@@ -83,6 +83,41 @@ class SubscriptionEntry(TypedDict):
     contact: str
 
 
+class FieldRule(TypedDict, total=False):
+    """Per-field threshold override declared in a contract ``enforcement`` block.
+
+    All keys are optional. When a key is absent, the global ``EnforcerConfig``
+    value is used as the fallback, so partial overrides are safe.
+    """
+
+    field: str
+    table: str
+    drift_z_warn: float
+    drift_z_fail: float
+    drift_null_warn_pp: float
+    drift_null_fail_pp: float
+    severity: str
+    skip_checks: list[str]
+
+
+class EnforcementConfig(TypedDict, total=False):
+    """Resolved enforcement configuration for one validation run.
+
+    Produced by merging the contract-level ``enforcement`` block with any
+    ``validation_overrides`` declared by downstream subscribers in the registry.
+    Registry overrides win on a per-field basis; ``skip_checks`` is the union
+    of all sources; ``validation_mode`` uses registry value when present.
+    """
+
+    skip_checks: list[str]
+    validation_mode: str
+    field_rules: list[FieldRule]
+
+
+# Backwards-compatible alias used by earlier revisions of the runner.
+ContractEnforcement = EnforcementConfig
+
+
 class ContractEntry(TypedDict):
     """An entry in the contract catalog (active or out_of_scope)."""
 

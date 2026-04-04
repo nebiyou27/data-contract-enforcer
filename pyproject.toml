@@ -60,6 +60,7 @@ contracts-baseline    = "contracts.baseline_manager:main"
 contracts-evolution-gate = "contracts.evolution_gate:main"
 contracts-quarantine     = "contracts.quarantine_manager:main"
 contracts-run-all        = "contracts.batch_runner:main"
+contracts-remediate      = "contracts.remediation_generator:main"
 
 # ---------------------------------------------------------------------------
 # Packaging — include only the contracts package; exclude venv and tests
