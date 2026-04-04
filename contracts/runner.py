@@ -61,7 +61,7 @@ try:
         load_lineage_graph,
         load_registry,
     )
-    from contracts.log_config import configure_logging
+    from contracts.log_config import configure_logging, configure_telemetry, get_tracer
 except ModuleNotFoundError:
     # Direct script invocation: add project root to path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -84,7 +84,7 @@ except ModuleNotFoundError:
         load_lineage_graph,
         load_registry,
     )
-    from contracts.log_config import configure_logging
+    from contracts.log_config import configure_logging, configure_telemetry, get_tracer
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -1120,6 +1120,8 @@ def main(argv: list[str] | None = None) -> int:
     now = datetime.now(timezone.utc)
     report_id = str(uuid.uuid4())
     configure_logging(run_id=report_id)
+    configure_telemetry()
+    tracer = get_tracer("contracts.runner")
 
     # Load contract
     logger.info("Loading contract: %s", args.contract)
@@ -1168,19 +1170,32 @@ def main(argv: list[str] | None = None) -> int:
     all_results: list[dict] = []
     new_baselines: dict[str, dict] = {}
 
-    for tdef in table_defs:
-        tname = tdef["name"]
-        fields = tdef.get("fields", [])
-        df = frames.get(tname, pd.DataFrame())
+    with tracer.start_as_current_span("contracts.validate") as root_span:
+        root_span.set_attribute("contract.id", contract_id)
+        root_span.set_attribute("contract.snapshot_id", snapshot_id)
+        root_span.set_attribute("contract.mode", args.mode)
+        root_span.set_attribute("run.id", report_id)
 
-        results, stats = run_table_checks(tname, fields, df, baselines, contract_id)
-        all_results.extend(results)
+        for tdef in table_defs:
+            tname = tdef["name"]
+            fields = tdef.get("fields", [])
+            df = frames.get(tname, pd.DataFrame())
 
-        if stats:
-            baseline_key = f"{contract_id}/{tname}"
-            new_baselines[baseline_key] = stats
+            with tracer.start_as_current_span("contracts.table_checks") as tspan:
+                tspan.set_attribute("table.name", tname)
+                tspan.set_attribute("table.row_count", len(df))
+                tspan.set_attribute("table.field_count", len(fields))
 
-    all_results.extend(run_cross_table_checks(frames))
+                results, stats = run_table_checks(tname, fields, df, baselines, contract_id)
+
+            all_results.extend(results)
+
+            if stats:
+                baseline_key = f"{contract_id}/{tname}"
+                new_baselines[baseline_key] = stats
+
+        with tracer.start_as_current_span("contracts.cross_table_checks"):
+            all_results.extend(run_cross_table_checks(frames))
 
     # Tally
     passed = sum(1 for r in all_results if r["status"] == "PASS")
@@ -1189,6 +1204,12 @@ def main(argv: list[str] | None = None) -> int:
     errored = sum(1 for r in all_results if r["status"] == "ERROR")
     total = len(all_results)
     schema_summary = summarize_schema_evolution(all_results)
+
+    root_span.set_attribute("checks.total", total)
+    root_span.set_attribute("checks.passed", passed)
+    root_span.set_attribute("checks.failed", failed)
+    root_span.set_attribute("checks.warned", warned)
+    root_span.set_attribute("checks.errored", errored)
 
     logger.info(
         "Checks complete: total=%d pass=%d fail=%d warn=%d error=%d",

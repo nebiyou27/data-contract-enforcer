@@ -22,6 +22,14 @@ llm = [
     "anthropic>=0.87.0",
 ]
 
+# OpenTelemetry tracing — install with: pip install -e ".[otel]"
+# Set OTEL_EXPORTER_OTLP_ENDPOINT to enable export (e.g. http://localhost:4318)
+otel = [
+    "opentelemetry-api>=1.40.0",
+    "opentelemetry-sdk>=1.40.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.40.0",
+]
+
 # Development tooling
 dev = [
     "pytest>=9.0",
@@ -29,7 +37,7 @@ dev = [
 
 # Convenience group: everything
 all = [
-    "data-contract-enforcer[llm,dev]",
+    "data-contract-enforcer[llm,otel,dev]",
 ]
 
 # ---------------------------------------------------------------------------
