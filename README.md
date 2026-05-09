@@ -1,5 +1,11 @@
 # Data Contract Enforcer
 
+**What** - Data Contract Enforcer profiles JSONL datasets, generates Bitol data contracts, and validates new data against those contracts.
+
+**How** - It combines schema discovery, constraint inference, drift baselining, subscription-aware change gating, quarantine handling, and CI-ready validation reports.
+
+**Why** - It keeps multi-system data pipelines from silently breaking by catching schema, quality, and drift issues before downstream consumers are impacted.
+
 > **TRP-1 · Week 7** — Bitol v3.0.0 contract generation and validation for multi-system data pipelines.
 
 Automatically profiles JSONL datasets, generates machine-readable Bitol data contracts, and enforces them with structural and statistical checks. Covers the full contract lifecycle: schema discovery, constraint inference, drift baselining, producer-side evolution gating, quarantine management, and CI-ready validation with exit codes.
